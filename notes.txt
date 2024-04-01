@@ -1,0 +1,55 @@
+$\lambda fxy$. ifzero $x$ $y$ (succ $f$ (pred $x$))
+
+where
+
+$f :== \lambda x$. succ succ $x$
+
+$x :== 5$
+
+$y :== 10$
+
+\section{Introduction}
+Intro + Lit survey + mainbody + conclusion <= 10000 words
+\section{Literature, technology, and data survey}
+\section{...everything else...}
+Demonstrate:
+- understanding of the problem
+- clarity of objectives
+- planning and control
+- knowledge critial evaluation and use of the literature.
+- selection and depliyment of appropraite techniques
+- justification of decisions
+- achievement of the objectives
+- solutions of conceptual problems.
+- quality of the product.
+- selectivity, clarity and focus in discussion.
+- critical evaluation of own work and achievements.
+
+- Clear evidence of originality (novel applications, conception, new methods tools techniques)
+- significant contributon to or extension of existing knowledge, methods, or techniques
+- or inclusion of a significant amount of material that is publishable.
+
+
+Including
+- software development
+    - requirements 
+    - design
+    - detailed implementation
+    - testing
+
+Research:
+    - hypothesis 
+    - design of experiments
+    - experimental results 
+    - analysis
+
+Draft one month before handin.
+set deadlines
+complete section when they are ready.
+colalte all material needed before each section
+
+pay special attention to the conclusions. These will be read the most.
+Define any accronyms at the start.
+
+\section{Conclusion}
+including critical appraisal

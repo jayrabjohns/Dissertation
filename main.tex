@@ -1,14 +1,304 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+\documentclass[12pt,a4paper]{report}
+\usepackage{Bath-CS-Dissertation}
+\usepackage[newfloat]{minted}
+\usepackage[english]{babel}
+\usepackage{amsthm}
+\usemintedstyle{vs}
 
-\title{Dissertation}
-\author{Jay }
-\date{February 2024}
+\title{\bf $\langle$Dissertation Title$\rangle$}
+\author{Jay Rabjohns}
+\date{Bachelor of Science in Computer Science\\ 
+      The University of Bath\\
+      2023/24}
+
+% Numberings for Listing
+\makeatletter
+\renewcommand*{\thelisting}{\thesection.\arabic{listing}}
+%\renewcommand*{\thelisting}{\thechapter.\arabic{listing}}
+\@addtoreset{listing}{section}
+\makeatother
+
+% Numberings for theorems, corollaries, and lemmas
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
 
 \begin{document}
+\hypersetup{pageanchor=false}
+
+% Set this to the language you want to use in your code listings (if any)
+\lstset{language=Haskell,breaklines,breakatwhitespace,basicstyle=\small}
+
+\setcounter{page}{0}
+\pagenumbering{roman}
 
 \maketitle
+\newpage
 
-\section{Introduction}
+\declaration{$\langle$Dissertation Title$\rangle$}{Jay Rabjohns}
+\newpage
+
+\hypersetup{pageanchor=true}
+\abstract
+$\langle$The abstract should appear here. An abstract is a short paragraph describing the aims of the project, what was achieved and what contributions it has made.$\rangle$
+\newpage
+
+\tableofcontents
+\newpage
+
+%\listoffigures
+%\newpage
+
+%\listoftables
+%\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter*{Acknowledgements}
+Add any acknowledgements here.
+
+\newpage
+\setcounter{page}{1}
+\pagenumbering{arabic}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+This is the introductory chapter.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Literature and Technology Survey}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{SPCF Interpreter}
+
+bugs include catch being 0 indexed while case and products are 1 indexed. Add Succ.
+
+What chapters will I need?
+Well The lite review does a pretty good job at covering background material.
+
+What is the project about?
+
+broadly:
+\begin{itemize}
+    \item SPCF interpreter
+        - haskell 
+        - code quality
+        - software design?
+        - it isn't a regular software project in the sense that it probably doesn't need specific requirements. I think focusing too much on that woudl actually detract from the mathematical nature of it.
+        - focus on definitions and interpretations in haskell.
+        - Evaluation contexts, typing judements, intermediate data structures (AST), reduction rules, operationsally how do we compute in the lambda calculus, can probably talk more about that.
+        - testing and evaluation. Unit testing is good and code coverage is good. How do we know it works? Well a lot of it will be up to interpretation but we can take steps to mitigate glaring omissions in the implementations.
+    \item I think the language representation is actually big enough to be a section by itself.
+        - can talk about delta rules, alpha beta eta equality if I really feel like it, and maybe even some ties to category theory.
+    \item denesting terms in SPCF
+        - What does the representation look like?
+        - How is it defined?
+        - How is it fully expressive?
+        - What tie ins are there? 
+        - Bounded and unbounded terms
+        - Slightly different representations
+        - Given a working interpreter and language representation, what are we doing here?
+
+        This section could be 2 lines - here is the term that does the magic- but we could go into detail justifying it. Summarising work and showing understanding.
+    \item denesting of unbounded terms could probably be its own thing. Whether it's a chapter or section will become obvious later.
+\end{itemize}
+
+\section{Language Representation}
+
+We have provided a grammar for SPCF already ===HERE=== and now it is time to show to bring it to life by encoding it in Haskell. Broadly, there are three interesting parts to the grammar, variables, lambda abstractions, and applications, while the other terms can be though of as function constants. It would be theoretically be possible to encode these using the first mentioned terms but for convenience they are defined along with the rest of the calculus. 
+
+Terms -> AST
+Typing -> Can also be thought of as a finite tree but we don't commonly think of them that way when programming with practical languages.
+
+The language grammar provides an abstract definition but if we want to represent it in computer memory we will need a concrete definition. Algebraic data types (ADTs) are commonly used to represent recursive structures in Haskell, making them the perfect candidate for this. A simple example of this in use is illustrated in Listing \ref{listing:adt-ex}, where each line starts with a constructor name and is followed by a number of parameters. Our language definition for SPCF isn't conceptually more complicated but is slightly larger; leaf nodes will become variables or constants and branches will be applications, abstractions, and functions constants. 
+
+n-fold products are represented by an underlying list of terms and a 'cross' type.
+
+\begin{listing}[!ht]
+\caption{Example binary tree as an ADT}
+\begin{minted}{haskell}
+-- A binary tree has two constructors:
+--  `Branch` which is recursively defined over other trees
+--  `Leaf` which has a concrete value
+data Tree
+  = Branch Tree Tree 
+  | Leaf Int
+\end{minted}
+\label{listing:adt-ex}
+\end{listing}
+
+We provide an abstract definition of the language AST in Listing \ref{listing:spcf-ast}, notice the resemblance in syntax to the language grammar ====HERE====, this should be a reminder that these are indeed equivalent.
+
+\begin{listing}[!ht]
+\caption{AST definition for SPCF}
+\begin{minted}{haskell}
+data Term
+  = Variable Numeral 
+  | Lambda Label Type Term
+  | Apply Term Term
+  | etc etc
+\end{minted}
+\label{listing:spcf-ast}
+\end{listing}
+
+
+M, N ::= n | f | e | xτ | (λxσ.Mτ )σ→τ | (Mσ→τ Nσ)τ
+n ::= 1, 2, 3, ...
+f ::= succo→o | predo→o | condo→o→o→o | Y(τ →τ )→τ
+e ::= error1o | error2o | catchτ1→...τn→o
+τ , σ ::= o | σ → τ
+
+The language definition can be broken into discrete chunks. There are variables, abstractions, applications, 
+
+how did I represent it
+
+some haskell
+
+mathematical definitions
+
+asts
+
+literature on interpreters would be at home here
+
+how other calculi have been implemented
+
+\section{Typing}
+Explain typing judgements and rules, what the rules for SPCF are.
+
+\subsection{Typing Implementation}
+Similarly to the AST definition for terms we can define an ADT for the types of SPCF.
+
+\begin{listing}[!ht]
+\caption{Type definitions in Haskell}
+\begin{minted}{haskell}
+data Type
+  = Base  
+  | (:->) Type Type
+  | Empty Label Type Term
+  | Cross Term Term
+\end{minted}
+\label{listing:type-adt}
+\end{listing}
+
+\section{Term Evaluation}
+Typically when reducing expressions it is tempting to only consider closed terms, terms with no free
+variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
+
+\begin{definition}
+    A \emph{closure} $(E, t)$ is an environment $E$ paired with a term $t$ such that the environment is defined for all free variables in $t$.
+\end{definition}
+
+\begin{definition}
+    An \emph{environment} $E$ maps labels to closures. $E$ \emph{interprets} a label $x$ if there exists a map from $x$. The result to which $E$ interprets $x$ is written as $E[x]$.
+\end{definition}
+
+\begin{definition}
+    A closure \emph{evaluates} $(E, t) \Downarrow v$ to value $v$ if there exists a value $v$ such that $M \rightarrow^* v$.
+\end{definition}
+
+Evaluation contexts can be thought of as a collection of floating variable names and values (an environment) and a 'hole' $E[\_]$. This hole can be filled by a term, causing all the free variables of that term to take on values from the environment. Closed terms, or well typed programs, are evaluations with an empty context. As the computation gradually progresses, the environment is populated, which can be used when a variable is reached in reduction.
+
+In simpler lambda calculi that have no base types, computation can be equivalent to $\beta$-reduction ===BETA REDUCTION===\ref{}. This is because base values are represented by a combination of abstractions and applications. A popular example of this is Church encoding ===SOURCE=== which is quite fascinating but doesn't lend itself to serious computation. This is why we require a slightly more sophisticated approach. 
+
+This project uses call-by-value operational semantics based on evaluation contexts, given by ===SOURCE===. An evaluation context
+
+talk about catch and how that has been implemented
+
+write up some small step evaluation
+
+\section{Parser}
+
+\section{Correctness Testing}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Denesting in SPCF}
+
+how it is done 
+
+that will take a while.
+
+why it works.
+
+Some insights and intuitions from theauthor to demonstrate understanding.
+
+How is it fully expressive
+
+What tie ins are there? categories
+
+Given a working interpreter
+and language representation, what are we doing here?
+
+\section{Bounded Terms}
+
+Affine fragment of bounded SPCF.
+Injection and projection of affinely typeable bounded SPCF
+Step through these in detail. Together They define a retract. 
+\subsection{Injection}
+
+\subsection{Projection}
+
+how it is different from general SPCF
+\section{Unbounded Terms}
+how it is different from general SPCF
+
+\chapter{Results}
+why is this better?
+is it more readable?
+some comments here even if brief would create a nice conclusion
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Conclusions}
+
+%%
+%% Now we are back to the standard project contents that you should include
+%%
+
+This is the chapter in which you review the major achievements in the light of your original objectives, critique the process, critique your own learning and identify possible future work.
+
+highlight novelties.
+
+\vfill
+\section{Word Count}
+Number of words until this point, excluding front matter: XXX.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliography{bibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+
+%%
+%% Use the appendix for major chunks of detailed work, such as these. Tailor
+%% these to your own requirements
+%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\chapter{Design Diagrams}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\chapter{User Documentation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\chapter{Raw Results Output}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\chapter{Code}
+
+%% NOTE For this to typeset correctly, ensure you use the pdflatex
+%%      command in preference to the latex command.  If you do not have
+%%      the pdflatex command, you will need to remove the landscape and
+%%      multicols tags and just make do with single column listing output
+
+%\begin{landscape}
+%\begin{multicols}{2}
+%\section{File: yourCodeFile.java}
+%\lstinputlisting[basicstyle=\scriptsize]{yourCodeFile.java}
+%\end{multicols}
+%\end{landscape}
 
 \end{document}
