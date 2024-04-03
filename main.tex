@@ -3,6 +3,7 @@
 \usepackage[newfloat]{minted}
 \usepackage[english]{babel}
 \usepackage{amsthm}
+\usepackage{amsmath}
 \usemintedstyle{vs}
 
 \title{\bf $\langle$Dissertation Title$\rangle$}
@@ -13,8 +14,8 @@
 
 % Numberings for Listing
 \makeatletter
-\renewcommand*{\thelisting}{\thesection.\arabic{listing}}
-%\renewcommand*{\thelisting}{\thechapter.\arabic{listing}}
+%\renewcommand*{\thelisting}{\thesection.\arabic{listing}}
+\renewcommand*{\thelisting}{\thechapter.\arabic{listing}}
 \@addtoreset{listing}{section}
 \makeatother
 
@@ -24,7 +25,7 @@
 \newtheorem{lemma}[theorem]{Lemma}
 
 \theoremstyle{definition}
-\newtheorem{definition}{Definition}[section]
+\newtheorem{definition}{Definition}[chapter]%section]
 
 \theoremstyle{remark}
 \newtheorem*{remark}{Remark}
@@ -72,6 +73,138 @@ This is the introductory chapter.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Literature and Technology Survey}
+This chapter discusses the literary and historical background that the project relies on. It starts by introducing concepts and discussing their historical significance before ultimately landing on concrete implementation ideas for the project at hand. Some of the topics include:
+\begin{itemize}
+    \item The $\lambda$-calculus and its computational model
+    \item SPCF and other extensions of the $\lambda$-calculus
+    \item Nesting removal in SPCF and its theoretical base
+    \item Implementation details for an SPCF interpreter
+\end{itemize}
+
+\section{The \texorpdfstring{$\lambda$}{lambda}-calculus}
+The lambda calculus is an important tool in the field of functional programming. It is an abstract model of computation introduced by \cite{church_1936} which provides compact semantics for studying computation. It is analogous to a simple yet very powerful programming language. While it was originally used to study the foundations of mathematics, specifically the 'Entscheidungsproblem' or 'Decision Problem', it has since been adapted and expanded to accommodate a wide array of domains, including being the basis for functional programming as a whole. It is computationally complete, meaning it can represent any computable function or equivalently it can simulate any Turing machine \cite{turing_1937}.
+
+The lambda calculus is defined by the BNF grammar \eqref{eq:lambda_calc}, which provides an inductive definition for all lambda terms. Each term denotes a function and any term can be applied to any other term. $x$ is one of infinitely many variables, represented as a string. $\lambda x.N$ denotes an abstraction, which are functions that evaluate $M$ by binding all free occurrences of the supplied argument $x$ in $M$. They can be thought of as the suspended execution of a function, allowing it to be composed and reasoned about before its evaluation. $MN$ is the application of an argument $N$ to a function $M$. Together, these provide the basis to construct any valid term in the lambda calculus, highlighting how concise of a definition it has and further making the fact it is Turing complete quite incredible.
+
+\begin{equation}\label{eq:lambda_calc}
+    M,N ::= x\ |\ \lambda x.M\ |\ MN
+\end{equation}
+\subsection{Computation in the \texorpdfstring{$\lambda$}{lambda}-calculus}
+
+Computations in the lambda calculus are usually presented as a series of transformations $M \rightarrow M' \rightarrow M'' \rightarrow \ldots$. The basic computation step is a $\beta$-reduction \eqref{eq:beta_reduction}, where a term $(\lambda x.M)N$ is said to reduce to $M[N/x]$. This means that every occurrence of $x$ in $M$ is substituted with $N$. This is an example of a reducible expression, or $\beta$-redex. A normal form is a term to which no further computation can be performed, they are significant because ultimately they provide a convenient way of defining relations between terms. One takeaway from this which may not be immediately obvious is that terms can contain free variables, terms which reference variables not bound by a surrounding abstraction. This will become especially relevant later in Section \ref{sec:nesting_removal} when discussing argument sharing.
+
+\begin{equation}\label{eq:beta_reduction}
+   (\lambda x.M)N \rightarrow_{\beta} M[N/x]
+\end{equation}
+
+Relations can be defined between terms, denoted by $M \sim N$, which means that $M$ and $N$ are related by $\sim$. It is possible to define equivalence relations for expressing equivalence, which can be though of as being identical modulo something related to the relation. $\alpha$-equivalence $M =_{\alpha} N$ states that terms are equivalent if they are identical in every respect modulo variable names. $\beta$-equivalence $M =_{\beta} N$ holds when $M \rightarrow_{\beta}^* N$, ensuring that each substitution $M[N/x] =_{\alpha} M$ to avoid variable capture. Probably the most important equivalence relation to the project is observational equivalence $M \simeq N$, where terms are considered to be equivalent if their outputs are indistinguishable for any given input, this will become more relevant in Section \ref{sec:nesting_removal}.
+
+Many familiar higher-level constructs can be defined in the lambda calculus such as booleans, if-then-else expressions, natural numbers, and numerical operations like addition. These constructs allow real computation to be performed in terms of the lambda calculus. Church introduced a series of encodings for these, aptly named the Church encodings; \eqref{eq:booleans} provides definitions for booleans and $ifthen$. It is common for people to define a series of named constants as syntactic sugar for the lambda calculus, making programs considerably more readable while keeping the computational power. An example reduction of $ifthen$ can be seen below.
+\begin{equation*}
+\begin{split}
+ifthen\ true\ M\ N &\rightarrow_{\beta}^* M\\
+ifthen\ true\ M\ N &= (\lambda b. \lambda x.\lambda y.bxy)(\lambda x.\lambda y.x) M N\\
+& \rightarrow_{\beta} (\lambda x. \lambda y.(\lambda x.\lambda y.x) x y) M N\\
+& \rightarrow_{\beta} (\lambda y.(\lambda x.\lambda y.x) M y) N\\
+& \rightarrow_{\beta} (\lambda x.\lambda y.x) M N\\
+& \rightarrow_{\beta} (\lambda y.M) N\\
+& \rightarrow_{\beta} M
+\end{split}
+\end{equation*}
+
+Oppositely, it can be said that $ifthen\ false\ M\ N \rightarrow_{\beta}^* N$, but the full reduction is omitted here.
+
+The encodings for numerals and associated operators have been omitted for brevity.
+\begin{equation}\label{eq:booleans}
+\begin{split}
+true &= \lambda x.\lambda y.x\\
+false &= \lambda x.\lambda y.y\\
+ifthen &= \lambda b. \lambda x.\lambda y.bxy
+\end{split}
+\end{equation}
+
+Recursion is the act of a function referencing itself. In the lambda calculus, recursion is modelled by a so-called 'fixed point' operator, defined by $M =_{\beta} F\ M$, where the input term of a function is equal to its output. Every term in the lambda calculus has at least one fixed point. The fixed point of a term can be found through a so-called 'fixed point combinator', which cleverly uses self-application to deduce the fixed point. Many fixed point combinators exist, one of the simplest is the Y-combinator \eqref{eq:y_combinator} introduced by \cite{curry_1930}. A combinator is simply a closed term, a term with no free variables. As an aside, the constants such as $ifthen$ and $true$ defined earlier are also kinds of combinator.
+
+\begin{equation}\label{eq:y_combinator}
+    Y = \lambda f.(\lambda x.f(xx))(\lambda x.f(xx))
+\end{equation}
+
+\subsection{Typing in the \texorpdfstring{$\lambda$}{lambda}-calculus}
+It is possible and indeed common to extend the lambda calculus by editing its grammar. One such way is the addition of types, creating a typed lambda calculus. Types encode additional information about terms, including how they can be applied to one another. The addition of types is a trade-off, it cannot express all terms from the lambda calculus, however more can be proven about the terms it can express. Generality is lost in favour of specificity.
+
+The simply typed lambda calculus is a form of typed lambda calculus originally introduced by \cite{church_1940} to address what he felt was a paradox in his untyped lambda calculus, self-application. An example of self-application is the term $\lambda x.xx$, commonly denoted $\Omega$, which is commonly used as an example of a diverging program. A grammar for the STLC is given by \eqref{eq:typed_lambda_calc}, where types are either a base type $o$ or constructed from two types $\sigma \rightarrow \tau$. Comparing the grammar to the untyped lambda calculus \eqref{eq:lambda_calc}, we see that the typing rules restrict the terms which can be applied to abstractions, illustrated by binding variables being annotated by a type $\tau$.
+
+\begin{equation} \label{eq:typed_lambda_calc}
+\begin{split}
+    M,N &::=x\ |\ \lambda x^{\tau} .M\ |\ MN\\
+    \tau , \sigma &::= o\ |\ \sigma \rightarrow \tau
+\end{split}
+\end{equation}
+
+The significance of preventing self-application is that it is said to be strongly normalising, every term terminates and every term has a $\beta$-normal form, shown by \cite{tait_1967}. The trade-off for this is that recursion is no longer possible since self-application is not possible. This can be illustrated by trying to type the Y-combinator \eqref{eq:y_combinator}, where any type assigned to $x$ will always lead to a contradiction of the type for $f$. We will come back to this when reasoning about affine programs in section \ref{sec:nesting_removal}, specifically the differentiation between bounded and unbounded programs.
+
+\section{Extensions of the simply typed \texorpdfstring{$\lambda$}{lambda}-calculus}
+\subsection{Logic of Computable Functions}
+In 1969 Dana Scott proposed the logic of computable functions (LCF), a logic which serves as the basis for a typed calculus supporting fixed-point recursion. It relies on the concept of a complete partial order (CPO), which is a relation between sets '$\leq$' that captures the idea of ordered computation. More specifically, elements of a set are related by a partial order and it is complete in the sense that each sequence of partially ordered elements has a least upper bound. In the context of fixed points, Scott shows that it is possible to construct a 'least fixed point', which is the smallest solution to a fixed-point equation, which implies that the recursion converges to a solution. Remember that while recursion via the least fixed point converges, it is not implied that the function terminates. For example, a function which always returns a constant value and never terminates is considered to have converged. LCF has laid the groundwork for more complex calculi than the STLC, and indeed Scott later used it to construct his X-Calculus but that is unrelated to the project at hand. This work was originally part of an unpublished note however it has since been published as a memorandum by \cite{milner_1973} to make it more accessible.
+
+\subsection{Programming of Computable Functions}
+PCF is a sequential functional language based on LCF introduced by \cite{plotkin_1977}. Whilst LCF is focused on providing a logic for proofs, PCF focuses more on practical computation and looks similar to a real-world programming language. It is, in essence, an extension of the simply typed lambda calculus supporting recursion as well as providing data types and functions out of the box. Its grammar is shown in \eqref{eq:pcf_grammar}, and similar to the STLC types are either a ground type or constructed between two existing types.
+
+\begin{equation} \label{eq:pcf_grammar}
+\begin{split}
+    M,N &::= n\ |\ f\ |\ x_{\tau}\ |\ (\lambda x_{\sigma} .M_{\tau})_{\sigma \rightarrow \tau}\ |\ (M_{\sigma \rightarrow \tau} \ N_{\sigma})_{\tau}\\
+    n &::= 1, 2, 3, \dots\\
+    f &::= succ_{o \rightarrow o} \ | \ pred_{o \rightarrow o} \ | \ cond_{o \rightarrow o \rightarrow o \rightarrow o} \ | \ Y_{(\tau \rightarrow \tau) \rightarrow \tau}\\
+    \tau , \sigma &::= o\ |\ \sigma \rightarrow \tau
+\end{split}
+\end{equation}
+
+One of the major challenges relating to PCF has been to create a model which is fully abstract, a crucial property for characterising the observational equivalence of programs. \cite{plotkin_1977} admits that in order for the provided model to be fully abstract, there must exist functions capable of computing more than one argument simultaneously, which contradicts PCF being a sequential language. This is due to the CPO model of PCF being defined over continuous functions despite the language only being able to represent sequential functions. Further models have been developed which provide full abstraction, notably one by \cite{milner_1977}, however these are considered less than satisfactory. Later, \cite{loader_1996} disproved the existence of an \textit{effectively representable} fully abstract model of finitary PCF, which is another important property regarding the definition of observational equivalence. Another approach to the problem is to extend the language rather than to modify its model, enabling the definition of a sequential and fully abstract language. This is what will be discussed in the next section.
+
+\subsection{Sequential Programming of Computable Functions}\label{sec:spcf}
+SPCF is an extension of PCF developed by \cite{cartwright_1992} which introduces error generators and escape handlers, acting as two kinds of control operator. Error generators describe the misapplication of terms and escape handlers can be thought of as escaping from local evaluation of a phrase. Its grammar is given by \eqref{eq:spcf_grammar}.
+
+Functions in SPCF are error-sensitive, meaning that if an argument evaluates to an error the function also returns an error. This error propagation is analogous to the behaviour of $try...catch$ statements commonly found in practical languages. Error sensitivity allows a programmer to determine the evaluation order of a function's arguments by substituting them with distinct error values and observing which one is thrown. For example take the term $(\lambda f.x)((\lambda f.f)y)$, if it doesn't evaluate the argument, x is returned, otherwise y is returned. This kind of runtime error is precisely what makes SPCF \textit{observably sequential} and what ultimately enables the construction of a fully abstract sequential language. Control operators will play a fundamental role in the removal of function nesting, where nested calls are effectively replaced by a series of jumps.
+
+\begin{equation} \label{eq:spcf_grammar}
+\begin{split}
+    M,N &::= n\ |\ f\ |\ e\ |\ x_{\tau}\ |\ (\lambda x_{\sigma} .M_{\tau})_{\sigma \rightarrow \tau}\ |\ (M_{\sigma \rightarrow \tau} \ N_{\sigma})_{\tau}\\
+    n &::= 1, 2, 3, \dots\\
+    f &::= succ_{o \rightarrow o} \ | \ pred_{o \rightarrow o} \ | \ cond_{o \rightarrow o \rightarrow o \rightarrow o} \ | \ Y_{(\tau \rightarrow \tau) \rightarrow \tau}\\
+    e &::= error_{1o}\ |\ error_{2o}\ |\ catch_{\tau_1 \rightarrow \dots \tau_n \rightarrow o}\\
+    \tau , \sigma &::= o\ |\ \sigma \rightarrow \tau
+\end{split}
+\end{equation}
+
+\section{Nesting Removal in SPCF}\label{sec:nesting_removal}
+It is incredibly common when writing programs to nest function calls. It leads to terse and expressive code but can lead to complicated implementations. A more formal definition of a nested function call can be defined as the sharing of variables from a function's scope as arguments of another function. It is possible to refactor a program, that is to change its representation to an equivalent form without changing its behaviour, to eliminate this behaviour. \cite{laird_2007} outlines a method for this in SPCF by transforming programs to a sublanguage ASPCF and subsequently projecting it back to the original type. Further, he shows that for every term of SPCF $M$ there exists an ASPCF term $M'$ such that $M \simeq M'$.
+
+ASPCF is SPCF with some additional typing constraints, referred to as affine typing. Affine typing restricts the use of variables and removes recursion, enforcing a form of linearity in programs. Commonly, affine typing implies variables may only be used once, but in this case it means variables may have a single reference or copy in use at any given time. Consequently, terms of an application may not share free variables, preventing functions from interfering with one another's evaluation. For example, for an affinely typed term $(A\ B)\ C$, $B$ and $C$ can contain no common free variables. It is for this reason that fixed point recursion is also removed, clearly the inner applications of the Y combinator \eqref{eq:y_combinator} cannot generally guarantee that terms contain no common free variables.
+
+\cite{laird_2007} first considers a bounded version of SPCF where types are finite, for example booleans or a bounded subset of the natural numbers. As well as this, terms are not recursive. What follows are denotational semantics creating injective and projective relations between SPCF terms and observationally equivalent ASPCF terms. Secondly, an unbounded call-by-value SPCF is considered. Here, numerals are defined over the natural numbers and terms may have recursive definitions. To not violate affine typing rules, recursion is replaced with iteration. From this, it is shown that unbounded terms have an affinely typed observationally equivalent term, and hence the same method is also applicable to unbounded terms.
+
+While it may be possible to refactor unbounded terms, in the real world, it makes little sense to implement and run this process naively for non terminating programs. The refactoring process would also be unbounded, both in execution time and memory usage. One potential usecase is to refactor terms in parts, considering that some paths in an unbounded program may still be bounded and it would be possible to remove nesting for these parts.
+
+The transformation is wholesale, meaning entire branches of the program would have to be considered at once. Importantly it's not possible to denest a function in isolation without also denesting its dependents. The process would have to be done to entire branches or paths of a program at once. A program path is a common conceptualisation of decisions being made in the program, for example conditionals and function calls both fork the program into multiple paths. From this, it is theoretically possible to lazily refactor paths of a program and over time return these to the user. This approach would of course also work for the bounded case, where it would terminate as before rather than having one or many long-standing or potentially infinite tasks. 
+
+\section{Implementation}
+An appropriate representation for SPCF programs in computer memory is needed. This will most likely be a form of abstract syntax tree (AST), which are commonly used in language compilers and parsers. They represent programs as a hierarchical tree of statements which follow the same syntactic ordering of the original program. This provides a convenient and efficient representation to operate on. The AST could be constructed either through tokenising an input string or by hard coding it. For this project it is possible to get away with hard coding it, so this will most likely be the approach taken.
+
+A very natural way to model an AST would be the use of an algebraic data type (ADT), which is supported well by Haskell. An ADT provides an expressive way to define and combine product types, such as structs and tuples, as well as sum types, such as enums. Their expressiveness and ability to model recursive types make them a natural fit to model inductive definitions such as the grammar for SPCF and recursive data structures like ASTs. \cite{jones_2003} discusses idioms related to abstract syntax tree implementation and agrees that functional languages provide a natural basis for them because of their support for user-defined recursive datatypes. For this interpreter, variables, abstractions, and applications will each have a corresponding representation in the ADT. Constants such as $succ_{o \rightarrow o}$ will not be a part of the ADT but rather functions to construct their relevant terms.
+
+Once an AST is constructed, it will be possible to evaluate terms by implementing the small-step operational semantics set out by \cite{laird_2007}. Each step will be a function which pattern matches on the term's ADT, applying the relevant reduction rule.
+
+In regards to implementing the denesting action, \cite{laird_2007} denotionally outlines the injective and projective mappings between SPCF and ASPCF terms which should be straightforward enough to implement once there is a working representation of SPCF in computer memory. 
+
+\subsection{Testing and Evaluation}
+To test the interpreter works, nested and denested terms will be evaluated on arbitrary data and the results will be compared. While term evaluation is still under development, it will be possible to do the evaluations by hand to get the same effect. For bounded terms, it could be possible to map every input and output for the SPCF term and check that they are equivalent to that of the ASPCF term. This should hold since they are observationally equivalent. 
+
+Unit tests could be used for the lower level language concepts such as reduction and term construction.
+
+It could be possible to recreate the proofs set out by \cite{laird_2007} but that may incur a lot of additional work, so we will most likely stick to unit tests and comparison to by hand evaluation to provide an approximation of correctness commonly accepted in software development.
+
+\section{Conclusion}
+\cite{laird_2007} provides a valuable framework for function nesting removal in SPCF. By tracing the rich historical lineage of SPCF from PCF, LCF, and the lambda calculus, we contextualise function denesting within a broader scope. We discuss some potential applications of unbounded function denesting, as well as ideas for implementation. Haskell is a fitting language for implementation due to its support of algebraic datatypes and lazy evaluation. With a well defined basis, the project's implementation is a natural next step.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{SPCF Interpreter}
@@ -91,7 +224,7 @@ broadly:
         - software design?
         - it isn't a regular software project in the sense that it probably doesn't need specific requirements. I think focusing too much on that woudl actually detract from the mathematical nature of it.
         - focus on definitions and interpretations in haskell.
-        - Evaluation contexts, typing judements, intermediate data structures (AST), reduction rules, operationsally how do we compute in the lambda calculus, can probably talk more about that.
+        - Evaluation contexts, typing judements, intermediate data structures (AST), reduction rules, operationally how do we compute in the lambda calculus, can probably talk more about that.
         - testing and evaluation. Unit testing is good and code coverage is good. How do we know it works? Well a lot of it will be up to interpretation but we can take steps to mitigate glaring omissions in the implementations.
     \item I think the language representation is actually big enough to be a section by itself.
         - can talk about delta rules, alpha beta eta equality if I really feel like it, and maybe even some ties to category theory.
@@ -110,7 +243,7 @@ broadly:
 
 \section{Language Representation}
 
-We have provided a grammar for SPCF already ===HERE=== and now it is time to show to bring it to life by encoding it in Haskell. Broadly, there are three interesting parts to the grammar, variables, lambda abstractions, and applications, while the other terms can be though of as function constants. It would be theoretically be possible to encode these using the first mentioned terms but for convenience they are defined along with the rest of the calculus. 
+We have provided a grammar for SPCF already ===HERE=== and now it is time to show to bring it to life by encoding it in Haskell. Broadly, there are three interesting parts to the grammar, variables, lambda abstractions, and applications, while the other terms can be though of as function constants. It would be theoretically possible to encode these using the first mentioned terms but for convenience they are defined along with the rest of the calculus. 
 
 Terms -> AST
 Typing -> Can also be thought of as a finite tree but we don't commonly think of them that way when programming with practical languages.
@@ -146,13 +279,6 @@ data Term
 \label{listing:spcf-ast}
 \end{listing}
 
-
-M, N ::= n | f | e | xτ | (λxσ.Mτ )σ→τ | (Mσ→τ Nσ)τ
-n ::= 1, 2, 3, ...
-f ::= succo→o | predo→o | condo→o→o→o | Y(τ →τ )→τ
-e ::= error1o | error2o | catchτ1→...τn→o
-τ , σ ::= o | σ → τ
-
 The language definition can be broken into discrete chunks. There are variables, abstractions, applications, 
 
 how did I represent it
@@ -170,22 +296,80 @@ how other calculi have been implemented
 \section{Typing}
 Explain typing judgements and rules, what the rules for SPCF are.
 
-\subsection{Typing Implementation}
-Similarly to the AST definition for terms we can define an ADT for the types of SPCF.
+Types encode additional information about terms, including how they can be applied to one another. Similarly to the simply typed lambda calculus, the types of SPCF can be encoded as either a 'base' type $o$ or an 'arrow type' $\sigma \rightarrow \tau$. We have made the decision to also include an explicit 'Empty' type to typify non-terminating functions and a 'Cross' type to encode n-fold products; both of which are necessary for the denesting action defined later.
 
 \begin{listing}[!ht]
-\caption{Type definitions in Haskell}
+\caption{Implementation of SPCF type definitions in Haskell}
 \begin{minted}{haskell}
 data Type
-  = Base  
-  | (:->) Type Type
-  | Empty Label Type Term
-  | Cross Term Term
+  = Base            -- Base type (numerals)
+  | Empty           -- Non-terminating function
+  | (:->) Type Type -- Procedure
+  | Unit            -- Type of the empty product
+  | Cross Type Type -- Binary product
 \end{minted}
 \label{listing:type-adt}
 \end{listing}
 
-\section{Term Evaluation}
+\begin{definition}
+    A typing \emph{context} $\Gamma$ is a map of variables to types.
+\end{definition}
+
+A typing context can be represented as a list, for example, $\Gamma = a:\tau, b:\sigma, \ldots$. It is also common to extend contexts, for example, $\Gamma, x:\tau$ reads as the context $\Gamma$ extended with $x$ having type $\tau$. 
+
+\begin{definition}
+    A typing \emph{judgement} $\Gamma \vdash M:\tau$ is a proposition, stating that given a context $\Gamma$ term $M$ has type $\tau$. A judgement can be true or false, depending on the given context.
+\end{definition}
+
+\begin{definition}
+    A typing \emph{rule} determines if it is possible for a term to have a type, sometimes this is called being well typed. Rules are written like this
+    \[
+    \frac{Premise_1 \quad\quad Premise_2 \quad\quad \ldots \quad\quad Premise_n}{Conclusion}
+    \]
+
+    This can be read 'given each of the things on the top, the thing on the bottom must be true'. It is possible to have a rule with nothing on the top, which is similar to an axiom or a statement which is always true.
+\end{definition}
+
+The typing rules for the bounded SPCF are defined below, together they provide a way to inductively type any term. 
+
+\textbf{Variables}
+\begin{equation}
+    \frac{}{\Gamma, x:\tau \vdash x: \tau}
+\end{equation}
+
+\textbf{Abstraction}
+\begin{equation}
+    \frac{\Gamma, x:\sigma \vdash M : \tau}{\Gamma \vdash \lambda x^{\sigma}. M : \sigma \rightarrow \tau}
+\end{equation}
+
+\textbf{Application}
+\begin{equation}
+    \frac{\Gamma \vdash M : \sigma \rightarrow \tau \quad\quad \Gamma \vdash N : \sigma}{\Gamma \vdash MN : \tau}
+\end{equation}
+
+\textbf{Product}
+\begin{equation}
+    \frac{\Gamma \vdash M:\sigma \quad\quad \Gamma \vdash N:\tau}{\Gamma \vdash \langle M,N \rangle : \sigma \times \tau}
+\end{equation}
+
+\textbf{Empty Product}
+\begin{equation}
+    \frac{}{\Gamma \vdash \langle \rangle : I}
+\end{equation}
+
+\textbf{Projection}
+\begin{equation}
+    \frac{\Gamma \vdash M:\tau_1 \times \tau_2}{\Gamma \vdash \pi_i M: \tau_i} i \in \{1, 2\}
+\end{equation}
+
+\subsection{Typing Implementation}
+
+
+Similarly to the AST definition for terms we can define an ADT for the types of SPCF.
+
+$\frac{}{}$
+
+\section{Term Evaluation}\label{section: evaluation}
 Typically when reducing expressions it is tempting to only consider closed terms, terms with no free
 variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
 
@@ -212,8 +396,24 @@ talk about catch and how that has been implemented
 write up some small step evaluation
 
 \section{Parser}
+NEED: Tradeoffs with handwritten parser or lexer
+NEED: example of program and its corresponding AST?
+
+
+As part of the project, we have provided a full parser for SPCF, capable of converting plain text into a fully constructed AST. With this, it is possible to write programs in our implementation of SPCF without having to construct the AST by hand. This brings it closer to looking like a practical programming language. 
+
+A clarification should be made, we have used the term 'parser' as a general term meaning the frontend of a compiler, where sourcecode is converted to object code. This is common colloquialism but not technically correct. A parser is the second step of a compiler frontend with the first being lexical analysis, sometimes called tokenisation.
+
+Lexical analysis is where source code is decomposed into a stream of tokens. For example the sample code \lstinline{x = 5;} might have the tokens "x", "=", "5", ";". We are effectively classifying substrings according to what they do. Patterns for these tokens are defined ahead of time the action of \emph{lexing} or tokenising is conceptually similar to applying a series of nested regular expressions. It is this list of tokens which is used by the parser to construct an AST.
+
+Tokenisation is a well-defined problem and tools exist to make the job easier. Alex\footnote{https://haskell-alex.readthedocs.io/en/latest/about.html} is a tool to generate lexers for Haskell. When configured with a set of regular expressions, it can generate Haskell code for a lexer defined on those expressions. It works similarly to a large macro whose result is bundled with the provided interpreter when built. Since alex is built in Haskell it should be no surprise that it is possible to extract information from the lexer stage in the form of a State monad. This monad keeps track of metadata such as the current position, which can be used to make compilation errors more informative. While tokenisation may be well-defined, there are still many pitfalls. The full configuration for alex along with some comments on what it does can be found in Appendix \ref{appendix: lexer}.
+
+Parsing is a similarly well-defined problem and general tools also exist for this. Happy\footnote{https://haskell-happy.readthedocs.io/en/latest/} is a tool used to generate parsers in Haskell. Similarly to alex, happy can also be viewed as a macro. Our parser defines rules on how to inductively construct an AST, building on the defined set of tokens in the lexer. After lexing and subsequently parsing a source file, the resulting terms are ready to be evaluated as described in Section \ref{section: evaluation}. For the interested reader, a copy of the happy configuration used along with some comments can be found in Appendix \ref{appendix: parser}.
+
+As a testament to how powerful these tools are when used in conjunction, both the lexer and parser for the Glasgow Haskell Compiler (GHC) are entirely defined using alex and happy\footnote{https://github.com/ghc/ghc/blob/271a7812cbb47494c74b1dc3b7d2a26fd8d88365/compiler/GHC/Parser/Lexer.x}. 
 
 \section{Correctness Testing}
+\section{Conclusion}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Denesting in SPCF}
@@ -287,7 +487,17 @@ Number of words until this point, excluding front matter: XXX.
 %\chapter{Raw Results Output}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\chapter{Code}
+\chapter{Code}
+
+\section{Lexer}\label{appendix: lexer}
+First macros are defined for digits and string characters. Then list of token patterns is defined using those macros. Then an algebraic datatype is used to enumerate all possible tokens, this is primarily what will be used later in the parser. Finally, some helper functions are defined to handle errors during lexing and for the handling of the previously defined ADT.
+
+\lstinputlisting[basicstyle=\scriptsize]{Lexer.x}
+
+\section{Parser}\label{appendix: parser}
+The same set of tokens defined in the lexer are brought forward to the definition of our parser. It's this compatibility between happy and alex that make them so popular. Then a series of rules are defined for how to inductively construct an AST from the defined tokens. Finally, some helper functions are defined enabling our program to interface with the parser later on. 
+
+\lstinputlisting[basicstyle=\scriptsize]{Parser.y}
 
 %% NOTE For this to typeset correctly, ensure you use the pdflatex
 %%      command in preference to the latex command.  If you do not have
