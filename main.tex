@@ -271,10 +271,16 @@ We provide an abstract definition of the language AST in Listing \ref{listing:sp
 \caption{AST definition for SPCF}
 \begin{minted}{haskell}
 data Term
-  = Variable Numeral 
+  = Numeral Int
+  | Variable Label
   | Lambda Label Type Term
-  | Apply Term Term
-  | etc etc
+  | Apply Term Term 
+  | Succ Term
+  | Pred Term
+  | YComb Term
+  | If0 Term Term Term
+  | Error Error
+  | Catch Term
 \end{minted}
 \label{listing:spcf-ast}
 \end{listing}
@@ -370,14 +376,15 @@ Similarly to the AST definition for terms we can define an ADT for the types of 
 $\frac{}{}$
 
 \section{Term Evaluation}\label{section: evaluation}
-Typically when reducing expressions it is tempting to only consider closed terms, terms with no free
-variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
+Typically when reducing expressions it is tempting to only consider closed terms, terms with no free variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
+
+It is worth noting that not all calculi require a notion of evaluation contexts to have a notion of evaluation. In a more classical example of a simply typed lambda calculus basic datatypes are cleverly represented through a series of higher-order functions, called Church encodings. In that example, a term's computation can be defined as its $\beta$-reduction. It is our more complex language definition which calls for the need for evaluation contexts when defining its evaluation rules.
 
 \begin{definition}
     A \emph{closure} $(E, t)$ is an environment $E$ paired with a term $t$ such that the environment is defined for all free variables in $t$.
 \end{definition}
 
-\begin{definition}
+\begin{definition}\label{def: environment}
     An \emph{environment} $E$ maps labels to closures. $E$ \emph{interprets} a label $x$ if there exists a map from $x$. The result to which $E$ interprets $x$ is written as $E[x]$.
 \end{definition}
 
@@ -385,15 +392,29 @@ variables. However, to define rigorous operational semantics, we must consider a
     A closure \emph{evaluates} $(E, t) \Downarrow v$ to value $v$ if there exists a value $v$ such that $M \rightarrow^* v$.
 \end{definition}
 
-Evaluation contexts can be thought of as a collection of floating variable names and values (an environment) and a 'hole' $E[\_]$. This hole can be filled by a term, causing all the free variables of that term to take on values from the environment. Closed terms, or well typed programs, are evaluations with an empty context. As the computation gradually progresses, the environment is populated, which can be used when a variable is reached in reduction.
+Evaluation contexts are, in essence, an environment and a 'hole' $E[\_]$ which can be filled by any term. When a hole is filled, all the terms free variables take on values from the environment. This naturally describes a way of providing inputs or starting values to a program, as well as equally describing the tracking of an ongoing computation through recording the current values of variables in the environment. This idea of capturing the current state of a computation in a higher kinded type is common in functional programming and is an idiomatic use case for a monad.
 
-In simpler lambda calculi that have no base types, computation can be equivalent to $\beta$-reduction ===BETA REDUCTION===\ref{}. This is because base values are represented by a combination of abstractions and applications. A popular example of this is Church encoding ===SOURCE=== which is quite fascinating but doesn't lend itself to serious computation. This is why we require a slightly more sophisticated approach. 
+A monad represents computations which can be composed together to form new computations. In practice, they are commonly used to track state or to encode the possibility of computational failure. Although monads are a useful abstraction over composable computations, frustratingly they themselves are not composable with one another. To encode multiple monadic effects for a single computation, one must build what is known as a monad transformer, effectively a monad over other monads.
 
-This project uses call-by-value operational semantics based on evaluation contexts, given by ===SOURCE===. An evaluation context
+Our implementation of term evaluation in Haskell revolves around a monad transformer we have defined called Eval. It is composed of predefined monads from the Haskell standard library. As illustrated in Listing \ref{listing: eval} it uses a 'Reader' monad to keep track of the current environment, an 'Except' monad to indicate that computation could fail as a string, and a 'Writer' monad to keep track of any supplementary logs which are a useful way of recording the order of operations to look at later. An environment is just a map of labels to terms, exactly as it is defined in Definition \ref{def: environment}. Using this monad, it is possible to define an 'eval' function with the signature below:
+\mint{haskell}|eval :: Term -> Eval Term|
+This reads as 'eval is a function which maps a term to the Eval of that term'. 
 
-talk about catch and how that has been implemented
+\begin{listing}[!ht]
+\caption{The Eval monad used for term evaluation}
+\begin{minted}{haskell}
+type Environment = Map.Map Label Term
+type Eval a = (ReaderT Environment (ExceptT String (WriterT [String] Identity))) a
+\end{minted}
+\label{listing: eval}
+\end{listing}
 
-write up some small step evaluation
+Recall that Term (Listing \ref{listing:spcf-ast}) is an algebraic data type, meaning that eval must provide a case for each possibility of what that term could be. This is called exhaustive pattern matching and is commonly used alongside monad transformers to build interpreters, \citep[\emph{e.g.},][]{Liang1995MonadTA}. Each matched pattern corresponds to an evaluation rule of the language, these can be found in section \ref{section: op sem}.
+
+\subsection{Implementing Catch}
+
+\subsection{Operational semantics}\label{section: op sem}
+Evaluation rules are defined similarly to typing rules and together form an operational semantics.
 
 \section{Parser}
 NEED: Tradeoffs with handwritten parser or lexer
