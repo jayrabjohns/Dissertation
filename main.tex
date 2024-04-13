@@ -66,7 +66,6 @@ Add any acknowledgements here.
 \newpage
 \setcounter{page}{1}
 \pagenumbering{arabic}
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
 This is the introductory chapter.
@@ -161,27 +160,40 @@ PCF is a sequential functional language based on LCF introduced by \cite{plotkin
 
 One of the major challenges relating to PCF has been to create a model which is fully abstract, a crucial property for characterising the observational equivalence of programs. \cite{plotkin_1977} admits that in order for the provided model to be fully abstract, there must exist functions capable of computing more than one argument simultaneously, which contradicts PCF being a sequential language. This is due to the CPO model of PCF being defined over continuous functions despite the language only being able to represent sequential functions. Further models have been developed which provide full abstraction, notably one by \cite{milner_1977}, however these are considered less than satisfactory. Later, \cite{loader_1996} disproved the existence of an \textit{effectively representable} fully abstract model of finitary PCF, which is another important property regarding the definition of observational equivalence. Another approach to the problem is to extend the language rather than to modify its model, enabling the definition of a sequential and fully abstract language. This is what will be discussed in the next section.
 
-\subsection{Sequential Programming of Computable Functions}\label{sec:spcf}
-SPCF is an extension of PCF developed by \cite{cartwright_1992} which introduces error generators and escape handlers, acting as two kinds of control operator. Error generators describe the misapplication of terms and escape handlers can be thought of as escaping from local evaluation of a phrase. Its grammar is given by \eqref{eq:spcf_grammar}.
-
-Functions in SPCF are error-sensitive, meaning that if an argument evaluates to an error the function also returns an error. This error propagation is analogous to the behaviour of $try...catch$ statements commonly found in practical languages. Error sensitivity allows a programmer to determine the evaluation order of a function's arguments by substituting them with distinct error values and observing which one is thrown. For example take the term $(\lambda f.x)((\lambda f.f)y)$, if it doesn't evaluate the argument, x is returned, otherwise y is returned. This kind of runtime error is precisely what makes SPCF \textit{observably sequential} and what ultimately enables the construction of a fully abstract sequential language. Control operators will play a fundamental role in the removal of function nesting, where nested calls are effectively replaced by a series of jumps.
+\subsection{Sequential PCF}\label{sec:spcf}
+SPCF is an extension of PCF developed by \cite{cartwright_1992} which introduces error generators and escape handlers, acting as two kinds of control operators. Error generators describe the misapplication of terms and escape handlers can be thought of as escaping from local evaluation of a phrase.
 
 \begin{equation} \label{eq:spcf_grammar}
 \begin{split}
-    M,N &::= n\ |\ f\ |\ e\ |\ x_{\tau}\ |\ (\lambda x_{\sigma} .M_{\tau})_{\sigma \rightarrow \tau}\ |\ (M_{\sigma \rightarrow \tau} \ N_{\sigma})_{\tau}\\
+    M,N &::= n\ |\ f\ |\ e\ |\ x^{\tau}\ |\ (\lambda x^{\sigma} .M^{\tau})^{\sigma \rightarrow \tau}\ |\ (M^{\sigma \rightarrow \tau} \ N^{\sigma})^{\tau}\\
     n &::= 1, 2, 3, \dots\\
-    f &::= succ_{o \rightarrow o} \ | \ pred_{o \rightarrow o} \ | \ cond_{o \rightarrow o \rightarrow o \rightarrow o} \ | \ Y_{(\tau \rightarrow \tau) \rightarrow \tau}\\
-    e &::= error_{1o}\ |\ error_{2o}\ |\ catch_{\tau_1 \rightarrow \dots \tau_n \rightarrow o}\\
+    f &::= succ^{o \rightarrow o} \ | \ pred^{o \rightarrow o} \ | \ if0^{o \rightarrow o \rightarrow o \rightarrow o} \ | \ Y^{(\tau \rightarrow \tau) \rightarrow \tau}\\
+    e &::= error_1^{\ o}\ |\ error_{2}^{\ o}\ |\ catch^{\tau_1 \rightarrow \dots \tau_n \rightarrow o}\\
     \tau , \sigma &::= o\ |\ \sigma \rightarrow \tau
 \end{split}
 \end{equation}
+
+\subsubsection{Observing evaluation order with errors}
+Functions in SPCF are error-sensitive, meaning that if an argument evaluates to an error the function also returns an error. This error propagation is analogous to the behaviour of $try...catch$ statements commonly found in practical languages. Error sensitivity allows a programmer to determine the evaluation order of a function's arguments by substituting them with distinct error values and observing which one is thrown. For example, consider two possible recursive definitions of addition in SPCF. One recurses on its first parameter and the other on its second.
+
+\[+_l = Y(\lambda+.(\lambda x.\lambda y.\ if0\ x\ y\ succ (+\ (pred\ x)\ y)))\]
+\[+_r = Y(\lambda+.(\lambda x.\lambda y.\ if0\ y\ x\ succ (+\ x\ (pred\ y))))\]
+
+Due to functions being error-sensitive, the programmer can manually apply errors in different orders and observe the changes in behaviour. ($+_l\ error_1\ error_2$) evaluates $x$ first and so it returns $error_1$, ($+_r\ error1\ error2$) evaluates $y$ first and so it returns $error_2$. This behaviour is precisely what makes SPCF \textit{observably} sequential and what ultimately enables the construction of a fully abstract sequential language. 
+
+\subsubsection{Observing evaluation order with catch}
+The catch operator is introduced as part of SPCF so that a function's order of evaluation may be determined internally as part of a program. The inclusion of errors allows a programmer to try different combinations of errors as function arguments and remember their result, and with some kind of internal construct, catch, there is now a way for programs themselves to determine this.
+
+\cite{cartwright_1992} introduce a family of catch procedures based on the catch construct found in the original version of Scheme. Catch as defined here is a family of procedures with types ($\tau_1 \rightarrow \dots \rightarrow \tau_n \rightarrow o$, which is to say that if $f$ is a function with type $\tau_1 \rightarrow \dots \rightarrow \tau_n$, $catch\ f$ will return a base type. $catch\ f$ returns the index of the argument in which it is \emph{strict}, which means the argument which is evaluated first. If $f$ evaluates no arguments and returns a constant, then the plus the number of arguments is returned. This catch procedure is equivelantly expressive to the downward catch defined in Scheme but this is slightly simpler to reason about. 
+
+In Chapter \ref{chapter: denesting}, we will discuss in further detail the implications of including errors and catch in SPCF but for now it is worth knowing that control operators will play a fundamental role in the removal of function nesting, where nested calls are effectively replaced by a series of jumps.
 
 \section{Nesting Removal in SPCF}\label{sec:nesting_removal}
 It is incredibly common when writing programs to nest function calls. It leads to terse and expressive code but can lead to complicated implementations. A more formal definition of a nested function call can be defined as the sharing of variables from a function's scope as arguments of another function. It is possible to refactor a program, that is to change its representation to an equivalent form without changing its behaviour, to eliminate this behaviour. \cite{laird_2007} outlines a method for this in SPCF by transforming programs to a sublanguage ASPCF and subsequently projecting it back to the original type. Further, he shows that for every term of SPCF $M$ there exists an ASPCF term $M'$ such that $M \simeq M'$.
 
 ASPCF is SPCF with some additional typing constraints, referred to as affine typing. Affine typing restricts the use of variables and removes recursion, enforcing a form of linearity in programs. Commonly, affine typing implies variables may only be used once, but in this case it means variables may have a single reference or copy in use at any given time. Consequently, terms of an application may not share free variables, preventing functions from interfering with one another's evaluation. For example, for an affinely typed term $(A\ B)\ C$, $B$ and $C$ can contain no common free variables. It is for this reason that fixed point recursion is also removed, clearly the inner applications of the Y combinator \eqref{eq:y_combinator} cannot generally guarantee that terms contain no common free variables.
 
-\cite{laird_2007} first considers a bounded version of SPCF where types are finite, for example booleans or a bounded subset of the natural numbers. As well as this, terms are not recursive. What follows are denotational semantics creating injective and projective relations between SPCF terms and observationally equivalent ASPCF terms. Secondly, an unbounded call-by-value SPCF is considered. Here, numerals are defined over the natural numbers and terms may have recursive definitions. To not violate affine typing rules, recursion is replaced with iteration. From this, it is shown that unbounded terms have an affinely typed observationally equivalent term, and hence the same method is also applicable to unbounded terms.
+\cite{laird_2007} first considers a bounded version of SPCF where types are finite, for example booleans or a bounded subset of the natural numbers. As well as this, terms are not recursive. What follows are denotational semantics creating a pair of injection and projection relations between SPCF terms and observationally equivalent ASPCF terms. Secondly, an unbounded call-by-value SPCF is considered. Here, numerals are defined over the natural numbers and terms may have recursive definitions. To not violate affine typing rules, recursion is replaced with iteration. From this, it is shown that unbounded terms have an affinely typed observationally equivalent term, and hence the same method is also applicable to unbounded terms.
 
 While it may be possible to refactor unbounded terms, in the real world, it makes little sense to implement and run this process naively for non terminating programs. The refactoring process would also be unbounded, both in execution time and memory usage. One potential usecase is to refactor terms in parts, considering that some paths in an unbounded program may still be bounded and it would be possible to remove nesting for these parts.
 
@@ -207,7 +219,7 @@ It could be possible to recreate the proofs set out by \cite{laird_2007} but tha
 \cite{laird_2007} provides a valuable framework for function nesting removal in SPCF. By tracing the rich historical lineage of SPCF from PCF, LCF, and the lambda calculus, we contextualise function denesting within a broader scope. We discuss some potential applications of unbounded function denesting, as well as ideas for implementation. Haskell is a fitting language for implementation due to its support of algebraic datatypes and lazy evaluation. With a well defined basis, the project's implementation is a natural next step.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{SPCF Interpreter}
+\chapter{SPCF Interpreter}\label{chapter: interpreter}
 
 bugs include catch being 0 indexed while case and products are 1 indexed. Add Succ.
 
@@ -241,7 +253,7 @@ broadly:
     \item denesting of unbounded terms could probably be its own thing. Whether it's a chapter or section will become obvious later.
 \end{itemize}
 
-\section{Language Representation}
+\section{Language Representation}\label{section: language representation}
 
 We have provided a grammar for SPCF already ===HERE=== and now it is time to show to bring it to life by encoding it in Haskell. Broadly, there are three interesting parts to the grammar, variables, lambda abstractions, and applications, while the other terms can be though of as function constants. It would be theoretically possible to encode these using the first mentioned terms but for convenience they are defined along with the rest of the calculus. 
 
@@ -324,7 +336,7 @@ data Type
 A typing context can be represented as a list, for example, $\Gamma = a:\tau, b:\sigma, \ldots$. It is also common to extend contexts, for example, $\Gamma, x:\tau$ reads as the context $\Gamma$ extended with $x$ having type $\tau$. 
 
 \begin{definition}
-    A typing \emph{judgement} $\Gamma \vdash M:\tau$ is a proposition, stating that given a context $\Gamma$ term $M$ has type $\tau$. A judgement can be true or false, depending on the given context.
+    A typing \emph{judgement} $\Gamma \vdash M:\tau$ is a proposition, stating that given a context $\Gamma$, the term $M$ has type $\tau$. A judgement can be true or false, depending on the given context.
 \end{definition}
 
 \begin{definition}
@@ -378,7 +390,7 @@ $\frac{}{}$
 \section{Term Evaluation}\label{section: evaluation}
 Typically when reducing expressions it is tempting to only consider closed terms, terms with no free variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
 
-It is worth noting that not all calculi require a notion of evaluation contexts to have a notion of evaluation. In a more classical example of a simply typed lambda calculus basic datatypes are cleverly represented through a series of higher-order functions, called Church encodings. In that example, a term's computation can be defined as its $\beta$-reduction. It is our more complex language definition which calls for the need for evaluation contexts when defining its evaluation rules.
+It is worth noting that not all calculi require a notion of evaluation contexts to define evaluation. In a more classical example of a simply typed lambda calculus, basic datatypes are cleverly represented through a series of higher-order functions, called Church encodings. In that example, a term's computation can be defined as its $\beta$-reduction. It is our more complex language definition which calls for the need for evaluation contexts when defining its evaluation rules.
 
 \begin{definition}
     A \emph{closure} $(E, t)$ is an environment $E$ paired with a term $t$ such that the environment is defined for all free variables in $t$.
@@ -409,12 +421,27 @@ type Eval a = (ReaderT Environment (ExceptT String (WriterT [String] Identity)))
 \label{listing: eval}
 \end{listing}
 
-Recall that Term (Listing \ref{listing:spcf-ast}) is an algebraic data type, meaning that eval must provide a case for each possibility of what that term could be. This is called exhaustive pattern matching and is commonly used alongside monad transformers to build interpreters, \citep[\emph{e.g.},][]{Liang1995MonadTA}. Each matched pattern corresponds to an evaluation rule of the language, these can be found in section \ref{section: op sem}.
-
-\subsection{Implementing Catch}
+Recall that Term (Listing \ref{listing:spcf-ast}) is an algebraic data type, meaning that eval must provide a case for each possibility of what that term could be. This is called exhaustive pattern matching and is commonly used alongside monad transformers to build interpreters, \citep[\emph{e.g.},][]{Liang1995MonadTA}. Each matched pattern corresponds to an evaluation rule of the language, these can be found in Section \ref{section: op sem}.
 
 \subsection{Operational semantics}\label{section: op sem}
 Evaluation rules are defined similarly to typing rules and together form an operational semantics.
+
+\subsection{Observing sequentiality with Catch}
+One very important and helpful insight into the behaviour of program is the order in which it evaluates its arguments. It may not be immediately obvious but armed with that knowledge is it possible to completely defined a procedures behaviour. One way for programmers to determine a procedures evaluation order is by using errors, by applying an error in different positions it is possible to observe which position leads to an error.
+
+SPCF forces all procedures to be error sensitive, meaning that if an error is evaluated it is immediately returned. Take for example $+_l$ which is addition defined by evaluating its left argument first, $+_l$ $error1$ $error2$ would return $error1$. The inclusion of catch into SPCF allows programs to observe evaluation order. \cite{cartwright_1992} define it as a family of procedures with types $(\tau_1 \rightarrow \dots \tau_n \rightarrow o) \rightarrow o$ where if $f$ is a procedure of type $\tau_1 \rightarrow \dots \tau_n \rightarrow o$, then catch $f$ returns $i - 1$ if f is strict in its $i$th argument and $k+n$ if $f$ returns a constant. 
+
+In our implementation of Catch, the AST continued to be walked, but in a slightly different way. Like before function constants and applications essentially continue the downward traversal of catch, being careful to evaluate applications and Ifzero in sequential order of their arguments. Things become more interesting when evaluating a lambda abstraction. The label of the abstraction is pushed to a stack maintained by the catch function before continuing downwards. When a variable is reached, the index of the last occurring instance of the label in the stack in returned. If an error is reached, that error is returned, and if a numeral constant is reached,  that value along with the length of the current stack is returned. Catch was originally defined in terms of a lexically scoped control stack, which precisely describes this implementation as well.
+
+AS far as we are aware this is the first time this has been implemented in code, along with an interpreter for SPCF in general.
+
+Catch is one of the most pivotal parts of SCPF, it's existence has many implications. Here we will discuss a few of them along with its implementation.
+
+First consider that it is possible to 
+
+It is a way of encoding non-local control into programs, which means that it is possible to stop a terms execution prematurely and jump to somewhere else in the program.
+
+in some senses it  is a term which how  is central to what makes operator is defined by \cite{cartwright_1992}
 
 \section{Parser}
 NEED: Tradeoffs with handwritten parser or lexer
@@ -425,7 +452,7 @@ As part of the project, we have provided a full parser for SPCF, capable of conv
 
 A clarification should be made, we have used the term 'parser' as a general term meaning the frontend of a compiler, where sourcecode is converted to object code. This is common colloquialism but not technically correct. A parser is the second step of a compiler frontend with the first being lexical analysis, sometimes called tokenisation.
 
-Lexical analysis is where source code is decomposed into a stream of tokens. For example the sample code \lstinline{x = 5;} might have the tokens "x", "=", "5", ";". We are effectively classifying substrings according to what they do. Patterns for these tokens are defined ahead of time the action of \emph{lexing} or tokenising is conceptually similar to applying a series of nested regular expressions. It is this list of tokens which is used by the parser to construct an AST.
+Lexical analysis is where source code is decomposed into a stream of tokens. For example the code `\lstinline{x = 5;}` might have tokens ["x", "=", "5", ";"]. We are effectively classifying substrings according to what they do. Patterns for these tokens are defined ahead of time along with the language definition. It is this list of tokens which is used by the parser to construct an AST. The action of \emph{lexing} or tokenising is conceptually similar to applying a series of nested regular expressions.
 
 Tokenisation is a well-defined problem and tools exist to make the job easier. Alex\footnote{https://haskell-alex.readthedocs.io/en/latest/about.html} is a tool to generate lexers for Haskell. When configured with a set of regular expressions, it can generate Haskell code for a lexer defined on those expressions. It works similarly to a large macro whose result is bundled with the provided interpreter when built. Since alex is built in Haskell it should be no surprise that it is possible to extract information from the lexer stage in the form of a State monad. This monad keeps track of metadata such as the current position, which can be used to make compilation errors more informative. While tokenisation may be well-defined, there are still many pitfalls. The full configuration for alex along with some comments on what it does can be found in Appendix \ref{appendix: lexer}.
 
@@ -437,7 +464,57 @@ As a testament to how powerful these tools are when used in conjunction, both th
 \section{Conclusion}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Denesting in SPCF}
+\chapter{Affine transformation of programs}\label{chapter: denesting}
+Up to this point, we have discussed SPCF and its predecessors \ref{sec:spcf}, the concrete language definitions used \ref{section: language representation}, how they were implemented in the form of an interpreter \ref{section: evaluation}, and alluded to a refactoring transformation for programs written in SPCF to an equivalent affine form \ref{sec:nesting_removal}. We build on these and elaborate on the refactoring action, how it uses SPCF specific features, and comment on implementations details. Our understanding is that this is the first time this transformation has been implemented in code. 
+
+\section{Procedures as decision trees}
+Graphs are often used to encapsulate certain aspects of a program or function's behaviour. These can be at any level of abstraction, such as a high level visualisation of the neurons in a neural networks, or the low level control flow of a function's possible execution paths at runtime. The choice to include non-local control and error-sensitivity in SPCF means that it's graph model for functions will have more structure than generic function graphs. Intuitively, it makes sense that the graph model for a sequential language should have to encode some essence of sequentiality, specifically the evaluation order of function arguments. This is exactly the case, one of the key findings of \cite{cartwright_1992}, was a denotational model for continuous functions in SPCF constructed from decision trees. 
+
+Consider the term:
+\[\lambda xyz.\ \text{if0}\ x\ \text{then}\ (succ\ y)\ \text{else}\ (pred\ z)\]
+It is strict in its first argument, then the strictness of its second and third arguemnt are determined by the value of x. If x is 0 then it will evaluate y and z otherwise. Thus this function is entirely representable by the index at which it is strict, along with a mapping of all possible input values to their respective outputs; this is written $\langle i, f \rangle$. Since functions are error sensitive, error1 and error2 will always map to error1 and error2 respectively, and since it is continuous $\bot$ always maps to $\bot$. Thus the function above can be represented as
+
+\[\langle 1, 
+\begin{cases}
+    \bot \mapsto \bot\\
+    \text{error}_1 \mapsto \text{error}_1\\
+    \text{error}_2 \mapsto \text{error}_2\\
+    0 \mapsto\ \langle 2 \begin{cases}
+        \bot &\mapsto \bot\\
+        \text{error}_1 &\mapsto \text{error}_1\\
+        \text{error}_2 &\mapsto \text{error}_2\\
+        0 &\mapsto 1\\
+        1 &\mapsto 2\\
+          &\dots
+    \end{cases} &\rangle\\
+    1 \mapsto\ \langle 3 \begin{cases}
+        \bot &\mapsto \bot\\
+        \text{error}_1 &\mapsto \text{error}_1\\
+        \text{error}_2 &\mapsto \text{error}_2\\
+        0 &\mapsto \bot\\
+        1 &\mapsto 0\\
+        2 &\mapsto 1\\
+          &\dots
+    \end{cases} &\rangle\\
+    \dots
+\end{cases} \quad\quad\rangle
+\]
+This can be represented as a decision tree with vertices being the set of pairings  $\langle i, f \rangle$ and edges leading from each vertex being the set of possible values of the $i$th argument. 
+
+Other models for SPCF have been worked on, for example \cite{kanneganti_1993} provide an alternate model, reconstructed from this one, using the idea of a prime basis \citep{Winskel1980EventsIC} in an attempt to show that SPCF is a simple extension of the simply typed lambda calculus. We will focus on this original decision tree model because the idea of representing functions as trees is a helpful mental model to have when reasoning about the denesting action discussed in the next section.
+
+\section{Procedures as tuples}
+
+
+\section{Bounded terms}
+\section{Unbounded terms}
+\section{Implementation}
+\section{Conclusion}
+
+
+Refactoring is the action of rewriting code without changing its behaviour. Many popular forms of refactoring exist 
+
+The transformation is comparable to a form of refactoring. 
 
 how it is done 
 
@@ -455,11 +532,27 @@ Given a working interpreter
 and language representation, what are we doing here?
 
 \section{Bounded Terms}
+We introduce a bounded version of SPCF by slightly altering its language definitinon. Our bounded SPCF has been restricted in several ways, primarily recursion has been removed entirely, a suitable encoding for product types has been included, the conditional If0 has been replaced by a conditional on products called Case and errors have been removed as they are not necessary for this transformation.
+
+\begin{equation}
+    M,N := F\ |\ B\ |\ M \Rightarrow N\ |\ M \times N\ |\ I 
+\end{equation}
+
+Where $B = \{\underline{n}\ |\ n\in \mathbb{N}\}$ are natural numbers $ < n$.
+F represents the following functional constants:
+Case
+
+The definitions of catch, variables, abstractions, and applications are all equivelant to those in the unbounded SPCF.
+
+\subsection{Product types}
+This definition of bounded SPCF relies on a suitable encoding for product types. Our implementation uses a list as an underlying data structure because all the required operations on products can be encoded in terms of a list. Insertion and removal of elements at a particular index $i$ can both be implemented in terms of common functions on lists. Haskel's standard library doesn't include these operations directly but they can be implemented with a standard list traversal where a particular element is incldued or removed. Projection at an index $i$ can also be encoded as accessing the list at index $i$. The empty product $I$ is simply the empty list.
 
 Affine fragment of bounded SPCF.
 Injection and projection of affinely typeable bounded SPCF
 Step through these in detail. Together They define a retract. 
 \subsection{Injection}
+
+
 
 \subsection{Projection}
 
