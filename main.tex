@@ -4,13 +4,14 @@
 \usepackage[english]{babel}
 \usepackage{amsthm}
 \usepackage{amsmath}
+\usepackage{stmaryrd}
 \usemintedstyle{vs}
 
 \title{\bf $\langle$Dissertation Title$\rangle$}
 \author{Jay Rabjohns}
 \date{Bachelor of Science in Computer Science\\ 
       The University of Bath\\
-      2023/24}
+      2024}
 
 % Numberings for Listing
 \makeatletter
@@ -465,7 +466,9 @@ As a testament to how powerful these tools are when used in conjunction, both th
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Affine transformation of programs}\label{chapter: denesting}
-Up to this point, we have discussed SPCF and its predecessors \ref{sec:spcf}, the concrete language definitions used \ref{section: language representation}, how they were implemented in the form of an interpreter \ref{section: evaluation}, and alluded to a refactoring transformation for programs written in SPCF to an equivalent affine form \ref{sec:nesting_removal}. We build on these and elaborate on the refactoring action, how it uses SPCF specific features, and comment on implementations details. Our understanding is that this is the first time this transformation has been implemented in code. 
+Up to this point, we have discussed SPCF and its predecessors \ref{sec:spcf}, the concrete language definitions used \ref{section: language representation}, how they were implemented in the form of an interpreter \ref{section: evaluation}, and alluded to a refactoring transformation for programs written in SPCF to an equivalent affine form \ref{sec:nesting_removal}. We build on these and elaborate on the refactoring action, how it uses SPCF specific features, and comment on implementations details. Our understanding is that this is the first time this transformation has been implemented in the real world. 
+
+Recall that the goal of this transformation is to construct observationally equivalent terms which satisfy affine typing rules. 
 
 \section{Procedures as decision trees}
 Graphs are often used to encapsulate certain aspects of a program or function's behaviour. These can be at any level of abstraction, such as a high level visualisation of the neurons in a neural networks, or the low level control flow of a function's possible execution paths at runtime. The choice to include non-local control and error-sensitivity in SPCF means that it's graph model for functions will have more structure than generic function graphs. Intuitively, it makes sense that the graph model for a sequential language should have to encode some essence of sequentiality, specifically the evaluation order of function arguments. This is exactly the case, one of the key findings of \cite{cartwright_1992}, was a denotational model for continuous functions in SPCF constructed from decision trees. 
@@ -504,11 +507,73 @@ This can be represented as a decision tree with vertices being the set of pairin
 Other models for SPCF have been worked on, for example \cite{kanneganti_1993} provide an alternate model, reconstructed from this one, using the idea of a prime basis \citep{Winskel1980EventsIC} in an attempt to show that SPCF is a simple extension of the simply typed lambda calculus. We will focus on this original decision tree model because the idea of representing functions as trees is a helpful mental model to have when reasoning about the denesting action discussed in the next section.
 
 \section{Procedures as tuples}
+\begin{definition}
+    A \emph{continuation} is a higher order function representing the current state of a computation.
+    
+    Classically, continuations have one argument, the value of the computation so far, and return the final result of the computation when the rest of the program has also finished. They are analogous to callback functions or partial function applications in practical programming languages. 
+\end{definition}
 
+The 'continuation passing style' (CPS) of programming is a style of programming where all function calls are tail calls. It is possible to have an entry point to the program have a return type being the empty type $0$ and all computation be through the calling of continuations. In some senses CPS programming is a natural opposite to classical functional programming, the difference being that in functional programming all computations are the return values of functions, whereas with CPS programming no computations are the results of functions and instead their side effects from running continuations.
 
-\section{Bounded terms}
-\section{Unbounded terms}
-\section{Implementation}
+\cite{laird_2007} relies on the notion of continuation passing to define his inj function which effectively represents bounded terms as a series of nested tuples consisting of the index at which a function is strict and a tuple of continuation functions for all the possible values at its strict argument. 
+
+The basis of the transformation of programs into an equivalent affinely typeable form set out by \cite{laird_2007} is a pair of injection and projection functions. The injection maps a term to a tuple of the index at which it is strict and a collection of continuation functions for each possible value which could have been applied.  
+
+\begin{definition}
+    The insertion of a value $x$ at the position $i$ into a given tuple $t = \langle t_0, \dots, t_{n-1} \rangle$ where $i \leq n$ is denoted $t\lfloor x \rfloor_i$. For example $t\lfloor x \rfloor_i = \langle t_0, \dots, t_{i-1}, x, t_i, \dots, t_{n-1} \rangle$
+\end{definition}
+
+\begin{definition}
+    The removal of a value $x$ at the position $i$ from a given tuple $t = \langle t_0, \dots, t_{n-1} \rangle$ where $i \le n$ is denoted $\lceil t \rceil_i$. For example $\lceil t \rceil_i = \langle t_0, \dots, t_{i-1}, t_{i+1}, \dots, t_{n-1} \rangle$
+\end{definition}
+
+\begin{definition}
+    The function \emph{inj}, which transforms a term in the bounded SPCF to a so-called 'tuple form', is definable as \\
+    inj: $\llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \rrbracket \rightarrow \llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \rrbracket$\\\\
+    inf($f$) =
+    $\begin{cases}
+        f &\text{if}\ f \in \{\top, \bot\}\\
+        \langle i, \langle f'_j\ |\ j < n \rangle \rangle\ &\text{if}\ i = \text{catch } f  \text{, where } f'_i(x) =  f(x \lfloor j \rfloor_i)
+    \end{cases}$\\\\
+   This is definable as the term
+    \[
+    \lambda f.\text{case}\langle \text{catch}\ f, \langle \langle j, \langle \pi_0(x),\dots,\pi_{m-1}\rangle \lfloor j \rfloor_i\ |\ i \leq m \rangle \rangle\ |\ j \le n \rangle
+    \]
+\end{definition}
+
+To understand this term it helps to consider its type one component at a time and correspond that to its operational definition. $f$ is the only parameter of proj and has the type $\underline{n}^{m+1} \Rightarrow \underline{0}$, which means that $f$ is a function mapping $\underline{n}^{m+1}$, an $m+1$ fold product of numerals $\le$ n, to the empty type $\underline{0}$. A valid question would be to ask what types of this term look like and the answer would be uncurried functions written in a continuation passing style. The second half of inj's type is a pair with the first element being $\underline{m+1}$, precisely the type provided by 'catch $f$' and a tuple containing the same number of candidate continuation functions as there are numerals in the language. Each continuation has the type $\underline{n}^{m} \Rightarrow \underline{0}$ which can be seen as the same type as $f$, where it takes one less argument. When regarding the operational definition it can be seen that this is because an argument has already been applied in the strict position as part of the continuation.
+
+It must also map $\top$ to $\top$ and $\bot$ to $\bot$ to remain \emph{continuous}, a property functions must have the in the underlying domain SPCF is defined on.
+
+\begin{definition}
+    The function \emph{proj}, which transforms a term in tuple form back to its original type, is defineable as \\
+    proj: $\llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \rrbracket \rightarrow \llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \rrbracket$\\\\
+    proj($\langle i, c\rangle$)($x$) =
+    $\begin{cases}
+        i\ &\text{if}\ i \in \{\top, \bot\}\\
+        \top\ &\text{if}\ \pi_i(x) = \top, \text{ or } \pi_i(x) = \top\\
+        \top\ &\text{if}\ f'_i(\lceil x \rceil_i) = \top \text{, where } f'_i = \pi_j(c)\\
+        \bot\ &\text{otherwise}
+    \end{cases}$\\\\
+    This is definable as the term
+    \[
+    \lambda tx. \text{case } \langle \pi_1(t), \langle \text{case } \langle \pi_i(x), \langle \pi_j(\pi_2(t)) \lceil \langle \pi_0(x), \dots, \pi_m(x)\rangle\rceil_j\ | \ j \le n \rangle \rangle\ |\ i \leq m \rangle \rangle
+    \]
+\end{definition}
+
+To understand this term, it helps to bear in mind the structure of $f$ when in tuple form. The parameter $t$ is of the form $\langle i, c\rangle$ where $i$ is the index at which $f$ is strict and $c$ is a tuple of continuation functions for each possible value supplied at the strict position. The parameter $x$ is the tuple of $f$'s parameters. In that sense the term defined here is a curried function and can be seen as having the type $\llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \times \underline{n}^{m+1} \rrbracket \rightarrow \llbracket \underline{0} \rrbracket$.
+
+\subsection{Implementation details}
+the definitions of inj and proj are quite dense and require many working features prior to their implementation. In Chapter \ref{section: language representation} we discuss most of these, however it is worth noting some subtleties which may not be obvious:
+\begin{enumerate}
+    \item Care is needed when defining if function arguments and tuples are 0-indexed or not. The both terms rely on the definition of catch to index a tuple, so their indexing must be consistent.
+    \item Extra care is required when choosing a representation for tuples. There are two cases in the definitions of inj and proj, the n-fold product and the binary product. 
+\end{enumerate}
+
+To expand on point (2), recall that the $n$-fold is a product with length $n$ where each element is of the same type, and that the binary product has no such restriction on typing. This should be clear by the fact inj returns a product of two elements with different types, a numeral and another product. It follows that it is not possible to define this pairing as an n-fold product and have the program be correctly typed. One solution is to construct all n-fold products from the repeated application of binary products, however having a representation for n-fold products relying on an underlying list is very convenient and provides many ready built functions such as 'map' to apply the same transformation to all elements. The alternative is to include definitions for both kinds of product including $\pi_1 \text{ and } \pi_2$ terms for the binary case. This enables the type to be correctly and statically determined. 
+
+\section{Transforming unbounded terms}
+
 \section{Conclusion}
 
 
