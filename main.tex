@@ -326,7 +326,7 @@ A typing context can be represented as a list, for example, $\Gamma = a:\tau, b:
     This can be read 'given each of the things on the top, the thing on the bottom must be true'. It is possible to have a rule with nothing on the top, which is similar to an axiom or a statement which is always true.
 \end{definition}
 
-\subsubsection{Typing rules} 
+\subsubsection{Typing rules} \label{section: type rules}
 
 \textbf{Variables}
 \begin{equation}
@@ -359,9 +359,11 @@ A typing context can be represented as a list, for example, $\Gamma = a:\tau, b:
 \end{equation}
 
 \subsection{Implementation details} 
-It is possible to use typing rules as a method of checking that the term has a correct type or as a method of inferring a terms type. Our implementation is a simple type inference algorithm similar to the one introduced by \cite{curry1958combinatory}, it is able to statically determine a terms type using the type annotations of binding variables and some axioms such as numerals having base type
+There are two primary approaches to interpreting typing rules depending on the order in which layers are read. If read top to bottom, rules describe a type verification algorithm which ensures terms adhere to type rules. If read bottom to top, they describe a type inference algorithm capable of determining the type of a given term. Both methods traverse a term's syntax tree applying type rules at each sub-expression and both rely on the fact that every term in SCPF has a unique type.
 
-We took this approach because it is useful when constructing terms necessary for the denesting action discussed in later chapters.
+For the purposes of this project, a type inference algorithm is necessary to construct a general application of the denesting action described in Chapter \ref{chapter: denesting}. The action relies on the type structure of terms it is applied to and in some senses actually describes a family of actions, each of which acting on terms of a specific type. The tree traversal and book keeping of variables is done in much the same way as for term evaluation, described in Section \ref{section: evaluation}, with the notable addition of applying the type rules specified in \ref{section: type rules}.
+
+One might wonder why the implementation of the denesting action, which ultimately takes the form of a pair of terms in the language, is written in Haskell and not in SPCF. That is to say, if our implementation is fully expressive why must we rely on Haskell to construct these terms? The answer lies once again as a typing problem. We have described the typing system of SPCF as monomorphic, where each term has a unique type and the type inference algorithm to be similar to the original definition by \cite{curry1958combinatory}. To define a term across many types as would be needed here we would required a type system supporting parametric polymorphism. Without this, it is possible to exhaustively define pairs of terms for a finite subset of types, but nothing more. This would be possibe and indeed type inference algorithms for thehse types systems exist \cite[\emph{e.g.},][]{hindley_1969, milner_1978} however they are more complex. Therefore we utilise on Haskell's more advanced type system to define these terms generically without the additional implementation complexity. 
 
 \section{Term Evaluation}\label{section: evaluation}
 Typically when reducing expressions it is tempting to only consider closed terms, terms with no free variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
@@ -388,7 +390,7 @@ Our implementation of term evaluation in Haskell revolves around a monad transfo
 \mint{haskell}|eval :: Term -> Eval Term|
 This reads as 'eval is a function which maps a term to the Eval of that term'. 
 
-\begin{listing}[!ht]
+\begin{listing}
 \caption{The Eval monad used for term evaluation}
 \begin{minted}{haskell}
 type Environment = Map.Map Label Term
@@ -400,9 +402,69 @@ type Eval a = (ReaderT Environment (ExceptT String (WriterT [String] Identity)))
 Recall that Term (Listing \ref{listing:spcf-ast}) is an algebraic data type, meaning that eval must provide a case for each possibility of what that term could be. This is called exhaustive pattern matching and is commonly used alongside monad transformers to build interpreters, \citep[\emph{e.g.},][]{Liang1995MonadTA}. Each matched pattern corresponds to an evaluation rule of the language, these can be found in Section \ref{section: op sem}.
 
 \subsection{Operational semantics}\label{section: op sem}
-Evaluation rules are defined similarly to typing rules and together form an operational semantics.
+Evaluation rules are defined similarly to typing rules and together form a small-step operational semantics.
 
-\subsection{Observing sequentiality with Catch}
+\textbf{Constants}
+\begin{equation}
+    \frac{}{E[n\in\mathbb{N}] \Downarrow n}
+\end{equation}
+
+\begin{equation}
+    \frac{}{E[error_i] \Downarrow error_i}\quad(i \in \{1,2\})
+\end{equation}
+
+\textbf{Variables}
+\begin{equation}
+    \frac{E[x] \Downarrow (E', x') \quad\quad E'[x'] \Downarrow V}{E[x] \Downarrow V}
+\end{equation}
+
+\textbf{Abstraction}
+\begin{equation}
+    \frac{}{E[\lambda x. M] \Downarrow E[\lambda x. M]}
+\end{equation}
+
+\textbf{Application}
+\begin{equation}
+    \frac{E[M] \Downarrow (E', \lambda x. x') \quad\quad  E[N] \Downarrow V' \quad\quad E'\cup \{x\mapsto V'\}[x'] \Downarrow V}{E[MN] \Downarrow V}
+\end{equation}
+
+\textbf{Successor}
+\begin{equation}
+    \frac{E[M] \Downarrow n}{E[succ\ M] \Downarrow n + 1}
+\end{equation}
+
+\textbf{Predecessor}
+\begin{equation}
+    \frac{E[M] \Downarrow n + 1}{E[pred\ M] \Downarrow n}
+\end{equation}
+
+\textbf{If0}
+\begin{equation}
+    \frac{E[P] \Downarrow 0 \quad\quad E[M] \Downarrow V}{E[\text{if0}\ P\ \text{then}\ M\ \text{else}\ N] \Downarrow V}
+\end{equation}
+
+\begin{equation}
+    \frac{E[P] \Downarrow n \quad\quad n > 0 \quad\quad E[N] \Downarrow V}{E[\text{if0}\ P\ \text{then}\ M\ \text{else}\ N] \Downarrow V}
+\end{equation}
+
+\textbf{Y combinator}
+\begin{equation}
+    \frac{}{E[\text{Y} \lambda x. M] \Downarrow E[M[\text{Y} \lambda x. M / x]]}
+\end{equation}
+
+
+\textbf{Catch}
+\begin{equation}
+    E[\text{Catch}\ M] \Downarrow \text{Where M is strict. See Section \ref{section: catch}}
+\end{equation}
+
+\subsubsection{Bounded term evaluation}
+For the bounded version of SPCF there are additional evaluation rules needed for products and the conditional statement case. 
+
+introduce bounded SPCF somewherre -> maybe in lit review?
+
+
+\subsection{Observing sequentiality with Catch}\label{section: catch}
 One very important and helpful insight into the behaviour of program is the order in which it evaluates its arguments. It may not be immediately obvious but armed with that knowledge is it possible to completely defined a procedures behaviour. One way for programmers to determine a procedures evaluation order is by using errors, by applying an error in different positions it is possible to observe which position leads to an error.
 
 SPCF forces all procedures to be error sensitive, meaning that if an error is evaluated it is immediately returned. Take for example $+_l$ which is addition defined by evaluating its left argument first, $+_l$ $error1$ $error2$ would return $error1$. The inclusion of catch into SPCF allows programs to observe evaluation order. \cite{cartwright_1992} define it as a family of procedures with types $(\tau_1 \rightarrow \dots \tau_n \rightarrow o) \rightarrow o$ where if $f$ is a procedure of type $\tau_1 \rightarrow \dots \tau_n \rightarrow o$, then catch $f$ returns $i - 1$ if f is strict in its $i$th argument and $k+n$ if $f$ returns a constant. 
