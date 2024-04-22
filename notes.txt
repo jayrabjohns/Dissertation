@@ -53,3 +53,41 @@ Define any accronyms at the start.
 
 \section{Conclusion}
 including critical appraisal
+
+
+
+
+
+
+
+bugs include catch being 0 indexed while case and products are 1 indexed. Add Succ.
+
+What chapters will I need?
+Well The lite review does a pretty good job at covering background material.
+
+What is the project about?
+
+broadly:
+\begin{itemize}
+    \item SPCF interpreter
+        - haskell 
+        - code quality
+        - software design?
+        - it isn't a regular software project in the sense that it probably doesn't need specific requirements. I think focusing too much on that woudl actually detract from the mathematical nature of it.
+        - focus on definitions and interpretations in haskell.
+        - Evaluation contexts, typing judements, intermediate data structures (AST), reduction rules, operationally how do we compute in the lambda calculus, can probably talk more about that.
+        - testing and evaluation. Unit testing is good and code coverage is good. How do we know it works? Well a lot of it will be up to interpretation but we can take steps to mitigate glaring omissions in the implementations.
+    \item I think the language representation is actually big enough to be a section by itself.
+        - can talk about delta rules, alpha beta eta equality if I really feel like it, and maybe even some ties to category theory.
+    \item denesting terms in SPCF
+        - What does the representation look like?
+        - How is it defined?
+        - How is it fully expressive?
+        - What tie ins are there? 
+        - Bounded and unbounded terms
+        - Slightly different representations
+        - Given a working interpreter and language representation, what are we doing here?
+
+        This section could be 2 lines - here is the term that does the magic- but we could go into detail justifying it. Summarising work and showing understanding.
+    \item denesting of unbounded terms could probably be its own thing. Whether it's a chapter or section will become obvious later.
+\end{itemize}
