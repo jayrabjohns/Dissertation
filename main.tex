@@ -7,6 +7,7 @@
 \usepackage{stmaryrd}
 \usepackage{amssymb}
 \usemintedstyle{vs}
+\usepackage{caption}
 
 \title{\bf $\langle$Dissertation Title$\rangle$}
 \author{Jay Rabjohns}
@@ -62,8 +63,8 @@ $\langle$The abstract should appear here. An abstract is a short paragraph descr
 %\newpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter*{Acknowledgements}
-Add any acknowledgements here.
+%\chapter*{Acknowledgements}
+%Add any acknowledgements here.
 
 \newpage
 \setcounter{page}{1}
@@ -221,16 +222,18 @@ Unit tests could be used for the lower level language concepts such as reduction
 It could be possible to recreate the proofs set out by \cite{laird_2007} but that may incur a lot of additional work, so we will most likely stick to unit tests and comparison to by hand evaluation to provide an approximation of correctness commonly accepted in software development.
 
 \section{Conclusion}
-Laird provides a valuable framework for function nesting removal in SPCF. By tracing the rich historical lineage of SPCF from PCF, LCF, and the lambda calculus, we contextualise function denesting within a broader scope. We discuss some potential applications of unbounded function denesting, as well as ideas for implementation. Haskell is a fitting language for implementation due to its support of algebraic datatypes and lazy evaluation. With a well defined basis, the project's implementation is a natural next step.
+Laird provides a valuable framework for function nesting removal in SPCF. By tracing the rich historical lineage of SPCF from PCF, LCF, and the lambda calculus, we contextualise function denesting within a broader scope. We discuss some potential applications of unbounded function denesting, as well as ideas for implementation. Haskell is a fitting language for implementation due to its support of algebraic datatypes and lazy evaluation. With a well-defined basis, the project's implementation is a natural next step.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{SPCF Interpreter}\label{chapter: interpreter}
-This chapter chapter aims to discuss a majority of the required background material for the next Chapter, which discusses the denesting action in detail. This action relies on a wide range of functional programming concepts, here we hope to build on Section \ref{section: lit-review-impl} along with notes on their implementation.
+This chapter introduces the prerequisite tools and foundational concepts material needed for Chapter \ref{chapter: denesting}, which discusses the denesting action in detail. This action relies on a wide range of concepts, such as continuation passing style programming, fixed point recursion, and various approaches to typing. We aim to build on Section \ref{section: lit-review-impl} while including notes on implementation.
+
+To effectively showcase the denesting action, we require a suitable representation for SPCF which can be manipulated and reasoned about in computer memory. Additionally, one of the most effective approaches to test its implementation is to evaluate terms pre and post-transformation transformation, ensuring their behaviour is unchanged, which is one of the transformation's key properties. For this reason, we have developed an interpreter for SPCF, complete with a frontend for parsing programs in plaintext. At the time of writing, there are no widely available interpreters for SPCF, meaning that this is done mostly out of necessity. However, this also presents an excellent opportunity to discuss interesting features of SPCF and highlight design decisions required for implementing the denesting action in chapter  \ref{chapter: denesting}.
 
 \section{Execution model}\label{section: language representation}
-An adequate runtime execution model is required if we are to construct and evaluate terms in SPCF. Haskell is a popular choice for building interpreters for variants of the $\lambda$-calculus and a common approach to representing terms are as an algebraic data type (ADT). This is illustrated in Listing \ref{listing:spcf-ast}, each term of the grammar \eqref{eq:spcf_grammar} is represented as a constructor. In terms of abstract syntax trees, leaf nodes represent variables and constants whereas branches are applications, abstractions, and functional constants. 
+An adequate runtime execution model is required if we are to construct and evaluate terms in SPCF. Haskell is a popular choice for building interpreters for variants of the $\lambda$-calculus and a common approach to representing terms is as an algebraic data type (ADT). This is illustrated in Listing \ref{listing:spcf-ast}, each term of the grammar \eqref{eq:spcf_grammar} is represented as a constructor. In terms of abstract syntax trees, leaf nodes represent variables and constants whereas branches are applications, abstractions, and functional constants. 
 
-Many aspects of SPCF are shared by other variants of lambda calculus, such as variables, abstractions, applications, and common function constants such as the successor and predecessor. What is in some senses interesting about SPCF is both the typeable fixed point combinator borrowed from LCF and its inclusion of a non-local operator 'catch'. 
+Other variants of lambda calculus share many aspects with SPCF, such as variables, abstractions, applications, and common function constants such as the successor and predecessor. What is in some senses interesting about SPCF is both the typeable fixed point combinator borrowed from LCF and its inclusion of a non-local operator 'catch'. 
 
 \begin{listing}
 \caption{SPCF AST inductive definition using an ADT}
@@ -251,7 +254,7 @@ data Term
 \end{listing}
 
 \subsection{Capture avoiding substitution}
-Similarly to any other variant of the $\lambda$-calculus, SPCF assumes well defined definitions for $\alpha, \beta, \eta$ equivalence, and of course, capture avoiding substitution. Our implementation includes these, with the notable omission of $\eta$-expansion because it is not relied upon by other operations. Capture avoiding substitution is often glossed over when discussing abstract language definitions, however seeing as our implementation is concerned with a concrete language definition, we shall briefly discuss it.
+Similarly to any other variant of the $\lambda$-calculus, SPCF assumes well-defined definitions for $\alpha, \beta, \eta$ equivalence, and of course, capture avoiding substitution. Our implementation includes these, with the notable omission of $\eta$-expansion because it is not relied upon by other operations. Capture avoiding substitution is often glossed over when discussing abstract language definitions, however seeing as our implementation is concerned with a concrete language definition, we shall briefly discuss it.
 
 Central to capture avoiding substitution is the notion of a fresh variable. Fresh variables are valid variable names which are not already bound in a term. We use Haskell's lazy evaluation to construct an infinite list of variable names of the following form: 
 \[
@@ -279,7 +282,7 @@ We introduce a bounded variant of SPCF which will serve as a basis for the denes
 
 \textbf{Products}
 
-This definition of relies on a suitable encoding for binary as well as $n$-fold products along with projections $\pi_i : \tau^n \Rightarrow \tau$ and $\pi_1 : \tau \times \sigma \Rightarrow \tau$, $\pi_2 : \tau \times \sigma \Rightarrow \sigma$. $n$-fold products provide a convenient syntax for constructing long collections of terms of uniform type. We provide an implementation of n-fold products by abstracting over a list and making use of its built in functions for traversal and indexing. The empty product $I$ is simply the empty list.
+This definition relies on a suitable encoding for binary as well as $n$-fold products along with projections $\pi_i : \tau^n \Rightarrow \tau$ and $\pi_1 : \tau \times \sigma \Rightarrow \tau$, $\pi_2 : \tau \times \sigma \Rightarrow \sigma$. $n$-fold products provide a convenient syntax for constructing long collections of terms of uniform type. We provide an implementation of n-fold products by abstracting over a list and making use of its built-in functions for traversal and indexing. The empty product $I$ is simply the empty list.
 
 \section{Types}\label{section: typing}
 Types encode additional information about terms, including how they can be applied to one another. Similarly to other typed lambda calculi, types in SPCF can be encoded as either a 'base' type $o$ or an 'arrow type' $\sigma \rightarrow \tau$. This set has been expanded to include an explicit 'Cross' type to encode n-fold and binary products as well as an 'Empty' type to typify non-terminating programs, which is necessary for programs written in continuation passing style, which the denesting action relies upon.
@@ -307,12 +310,12 @@ A typing context can be represented as a list, for example, $\Gamma = a:\tau, b:
 \end{definition}
 
 \begin{definition}
-    A typing \emph{rule} determines if it is possible for a term to have a type, sometimes this is called being well typed. Rules are written like this
+    A typing \emph{rule} determines if it is possible for a term to have a type, sometimes this is called being well-typed. Rules are written like this
     \[
     \frac{Premise_1 \quad\quad Premise_2 \quad\quad \ldots \quad\quad Premise_n}{Conclusion}
     \]
 
-    This can be read 'given each of the things on the top, the thing on the bottom must be true'. It is possible to have a rule with nothing on the top, which is similar to an axiom or a statement which is always true.
+    This can be read as 'given each of the things on the top, the thing on the bottom must be true'. It is possible to have a rule with nothing on the top, which is similar to an axiom or a statement which is always true.
 \end{definition}
 
 \subsubsection{Typing rules} \label{section: type rules}
@@ -348,11 +351,11 @@ A typing context can be represented as a list, for example, $\Gamma = a:\tau, b:
 \end{equation}
 
 \subsection{Implementation details} 
-There are two primary approaches to interpreting typing rules depending on the order in which layers are read. If read top to bottom, rules describe a type verification algorithm which ensures terms adhere to type rules. If read bottom to top, they describe a type inference algorithm capable of determining the type of a given term. Both methods traverse a term's syntax tree applying type rules at each sub-expression and both rely on the fact that every term in SCPF has a unique type.
+There are two primary approaches to interpreting typing rules depending on the order in which layers are read. If read top to bottom, rules describe a type verification algorithm which ensures terms adhere to type rules. If read from bottom to top, they describe a type inference algorithm capable of determining the type of a given term. Both methods traverse a term's syntax tree applying type rules at each sub-expression and both rely on the fact that every term in SCPF has a unique type.
 
-For the purposes of this project, a type inference algorithm is necessary to construct a general application of the denesting action described in Chapter \ref{chapter: denesting}. The action relies on the type structure of terms it is applied to and in some senses actually describes a family of actions, each of which acting on terms of a specific type. The tree traversal and book keeping of variables is done in much the same way as for term evaluation, described in Section \ref{section: evaluation}, with the notable addition of applying the type rules specified in \ref{section: type rules}.
+For this project, a type inference algorithm is necessary to construct a general application of the denesting action described in Chapter \ref{chapter: denesting}. The action relies on the type structure of terms it is applied to and in some senses describes a family of actions, each of which acting on terms of a specific type. The tree traversal and book keeping of variables is done in much the same way as for term evaluation, described in Section \ref{section: evaluation}, with the notable addition of applying the type rules specified in \ref{section: type rules}.
 
-One might wonder why the implementation of the denesting action, which ultimately takes the form of a pair of terms in the language, is written in Haskell and not in SPCF. That is to say, if our implementation is fully expressive why must we rely on Haskell to construct these terms? The answer lies once again as a typing problem. We have described the typing system of SPCF as monomorphic, where each term has a unique type and the type inference algorithm to be similar to the original definition by \cite{curry1958combinatory}. To define a term across many types as would be needed here we would required a type system supporting parametric polymorphism. Without this, it is possible to exhaustively define pairs of terms for a finite subset of types, but nothing more. This would be possible and indeed type inference algorithms for these type systems exist \cite[\emph{e.g.},][]{hindley_1969, milner_1978} however they are more complex. Therefore we utilise on Haskell's more advanced type system to define these terms generically without the additional implementation complexity. 
+One might wonder why the implementation of the denesting action, which ultimately takes the form of a pair of terms in the language, is written in Haskell and not in SPCF. That is to say, if our implementation is fully expressive why must we rely on Haskell to construct these terms? The answer lies once again as a typing problem. We have described the typing system of SPCF as monomorphic, where each term has a unique type and the type inference algorithm is similar to the original definition by \cite{curry1958combinatory}. To define a term across many types as would be needed here we would require a type system supporting parametric polymorphism. Without this, it is possible to exhaustively define pairs of terms for a finite subset of types, but nothing more. This would be possible and indeed type inference algorithms for these type systems exist \cite[\emph{e.g.},][]{hindley_1969, milner_1978} however they are more complex. Therefore we utilise Haskell's more advanced type system to define these terms generically without the additional implementation complexity. 
 
 \subsection{Examples}
 Consider $+_l$ defined in Section \ref{sec:spcf}, its typing judgement would look like \ref{listing: addLeft judgement}. The program output for the typing of this term is illustrated in Listing \ref{listing: addLeft judgement}. More typing terms and their typing judgements can be found in Appendix \ref{appendix: term evaluations}.
@@ -492,11 +495,10 @@ Catch encodes non-local control into SPCF programs, meaning it is possible to st
 \subsection{Examples}
 
 \section{Parser}
-As part of the project, we have provided a lexer and parser for SPCF with the goal to make experimentation with the language easier and to bring it closer to practical programming languages. A lexer and parser makeup what is known as a compiler frontend and together they enable writing programs as plain text with some syntax sugar, making programs significantly easier to read and write. The execution pipeline looks like this:
+As part of the project, we have provided a lexer and parser for SPCF to make experimentation with the language easier and to bring it closer to practical programming languages. A lexer and parser make up what is known as a compiler frontend and together they enable writing programs as plain text with some syntax sugar, making programs significantly easier to read and write. The execution pipeline looks like this:
 \[\text{Lexical analysis -> Parse tokens -> Object code -> Execute object code}.\]
-
 \subsection{Lexical analysis}
-Lexical analysis, also called tokenisation, is where source code is decomposed into a stream of tokens. Using an incredibly simple example, the code `\lstinline{x = 5;}` could be decomposed into the tokens ["x", "=", "5", ";"]. We are effectively classifying substrings according to what they do. Patterns for these tokens are defined ahead of time along with the language definition. It is this list of tokens which is used by the parser to construct an AST. The action of \emph{lexing} is conceptually similar to applying a series of nested regular expressions.
+Lexical analysis, also called tokenisation, describes the decomposition of source code to a stream of tokens. Using an incredibly simple example, the code `\lstinline{x = 5;}` could be decomposed into the tokens ["x", "=", "5", ";"]. We are effectively classifying substrings according to what they do. Patterns for these tokens are defined ahead of time along with the language definition. It is this list of tokens which is used by the parser to construct an AST. The action of \emph{lexing} is conceptually similar to applying a series of nested regular expressions.
 
 Tokenisation is a well-defined problem and general tools exist to the make the job easier. Alex\footnote{https://haskell-alex.readthedocs.io/en/latest/about.html} is a code generation tool used to build lexers in Haskell. It is configured with a set of regular expressions, which can be constant strings, which have a one-to-one correspondence with a token. Tokens are defined as entries in an algebraic datatype which can be referenced from other parts of the compilation pipeline. Once configured, Alex will generate Haskell code for a lexer defined on those expressions and bundle it with the interpreter binary. It works similarly to a large macro, abstracting many mundane details 
 which would otherwise have to be considered if handwriting a lexer, while highlighting the important ones such as which tokens exist.
@@ -528,12 +530,14 @@ tokens :-
 -- This is to improve error messages.
 data TokenClass = TokenId String | TokenSemicolon | TokenNat Int | TokenEquals
 data Token = Token AlexPosn TokenClass
-}
 \end{minted}
+\begin{verbatim}
+}
+\end{verbatim}
 \end{listing}
 
 \subsection{Parsing} 
-A parser uses a set of recursive rules to construct the program AST from the stream of tokens generated during lexical analysis. Similarly to tokenisation, parsing is a well-defined problem and tools exist to abstract laborious details. Happy\footnote{https://haskell-happy.readthedocs.io/en/latest/} is a code generation tool used to build parsers in Haskell, it is based on the famous parser-generator Yacc, which notably has a syntax reminiscent of BNF grammars. Similarly to Alex, Happy configuration can be viewed as a macro, only slightly more complex. It can be read top-down as a series of rules, where each rule may be defined inductively in terms of other rules. 
+A parser uses a set of recursive rules to construct the program AST from the stream of tokens generated during lexical analysis. Similarly to tokenisation, parsing is a well-defined problem and tools exist to abstract laborious details. Happy\footnote{\url{https://haskell-happy.readthedocs.io/en/latest/}} is a code generation tool used to build parsers in Haskell, it is based on the famous parser-generator Yacc, which notably has a syntax reminiscent of BNF grammars. Similarly to Alex, Happy configuration can be viewed as a macro, only slightly more complex. It can be read top-down as a series of rules, where each rule may be defined inductively in terms of other rules. 
 
 Using the same example from before and the minimal Happy configuration in Listing \ref{listing: happy config} the expression \lstinline{x=5;} could become encoded in the intermediate AST representation as: 
 \begin{minted}{haskell}
@@ -545,12 +549,11 @@ Similarly to Alex, a State monad is used to capture information from parsing to 
 spcf: user error (programs/program.spcf:1:5: parse error at token ';')
 \end{verbatim}
 
-As a testament to how powerful Happy and Alex are when used together, both the lexer and parser for the Glasgow Haskell Compiler (GHC) are entirely defined using them\footnote{https://github.com/ghc/ghc/blob/271a7812cbb47494c74b1dc3b7d2a26fd8d88365/compiler/GHC/Parser/Lexer.x}. 
+As a testament to how powerful Happy and Alex are when used together, both the lexer and parser for the Glasgow Haskell Compiler (GHC) are entirely defined using them\footnote{\url{https://github.com/ghc/ghc/blob/271a7812cbb47494c74b1dc3b7d2a26fd8d88365/compiler/GHC/Parser/Lexer.x}}. 
 
-\begin{listing}
+\begin{listing}\label{listing: happy config}
 \caption{Minimal Happy configuration to parse assignment expressions}
-\label{listing: happy config}
-\begin{minted}{haskell}
+\begin{verbatim}
 -- Atomic terms have a one to one correspondence with a term in the AST.
 -- Map TokenId to AST.Variable
 -- Map TokenNat to AST.Numeral 
@@ -565,7 +568,7 @@ Statement : id Binder {
 
 -- Determine what can be on the RHS of declarations
 Binder : '=' ATerm { $2 }
-\end{minted}
+\end{verbatim}
 \end{listing}
 
 \begin{listing}
@@ -583,24 +586,48 @@ eval (add error1 error2);
 
 
 \section{Conclusion}
-The goal of implementing the SPCF denesting action defined by Laird relies on a large amount of background material and prerequisite tools working together. We supply a suitable runtime representation for SPCF and method for evaluating terms. We expand on this, using code generation tools to provide an interpreter frontend for the language, allowing for easier experimentation and bringing it closer to a practical programming language. We discuss a suitable approach to typing and how the denesting action requires us prefer type inference over type checking. Special attention is given to the catch term as that is one of uncommon features of SPCF. At each stage, definitions and examples are used to reinforce points where necessary.
+The goal of implementing the SPCF denesting action defined by Laird relies on a large amount of background material and prerequisite tools working together. We supply a suitable runtime representation for SPCF and a method for evaluating terms. Building upon this, we use code generation tools to create an interpreter frontend for the language, allowing for easier experimentation and bringing it closer to practical programming languages. We discuss a suitable approach to typing, emphasising how the denesting action requires us to prefer type inference over type checking. Particular focus is given to the catch term as it represents a feature not commonly present in other $\lambda$-calculi and requires some nuance when implementing it from scratch. At each stage, points are reinforced with definitions and examples where necessary.
 
-With everything defined in this chapter, it is possible to next discuss in more detail the denesting action and implementation implications.
+In the next Chapter, we discuss in more detail the denesting action and implications of its implementation.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Affine transformation of programs}\label{chapter: denesting}
-Up to this point, we have discussed SPCF and its predecessors \ref{sec:spcf}, the concrete language definitions used \ref{section: language representation}, how they were implemented in the form of an interpreter \ref{section: evaluation}, and alluded to a refactoring transformation for programs written in SPCF to an equivalent affine form \ref{sec:nesting_removal}. We build on these and elaborate on the refactoring action, how it uses SPCF-specific features, and comment on implementation details. Our understanding is that this is the first time this transformation has been implemented in the real world. 
+\chapter{Affinely definable denesting transformation}\label{chapter: denesting}
+Up to this point, we have explored SPCF and its predecessors in Section \ref{sec:spcf}, discussed concrete language definitions in Section \ref{section: language representation}, how they materialise in the form of an interpreter in Section \ref{section: evaluation}, and alluded to a refactoring transformation for programs written in SPCF to an equivalent affine form in Section \ref{sec:nesting_removal}. 
 
-Recall that the goal of this transformation is to construct observationally equivalent terms which satisfy affine typing rules. 
+Laird originally split the problem into two cases, the transformation of bounded and unbounded terms. Bounded terms are restricted to numerals smaller than some upper bound $n$ as well as not being recursive. Conversely, unbounded terms may use anything in the language definition given that iteration is used in favour of recursion.
+
+In this chapter, we elaborate on the refactoring action, how it uses SPCF-specific features, and comment on its implementation details. We regularly comment on specific details relevant to bounded and unbounded terms individually. Remember, this transformation aims to construct observationally equivalent terms that adhere to affine typing rules. There are two primary components to this, an injection to an intermediate 'tuple representation' consisting of $\top$ and $\bot$ elements, and a projection to recover it again.
+
+\subsection{Continuation passing style}
+CPS is a style of programming where all function calls are tail calls. It is possible to have an entry point to the program return the empty type $0$ and all computation be through the calling of continuations.
+
+\begin{definition}
+    A \emph{continuation} is a higher-order function representing the current state of a computation.
+    
+    Classically, continuations have one argument, the value of the computation so far, and return the final result of the computation when the rest of the program has also finished. They are analogous to callback functions or partial function applications. 
+\end{definition}
+
+In some senses, CPS programming is a natural opposite of classical functional programming. With the latter, all computations are effectively the return values of functions, whereas with CPS computations are function side effects captured by running continuations. The transformation relies on the notion of continuation passing as its conceptual base case. It is possible to rewrite any function to an equivalent curried function written in CPS, then this transformation may be applied.
+
+A valid question is what curried functions written in CPS look like, consider an example term with the type $bool \times bool \Rightarrow \underline{0}$
+\[
+\begin{split}
+\lambda x^{bool}. \lambda y^{bool}. &\text{if } x  \\
+&\text{then }( \text{if } y \text{ then } \bot \text{ else } \bot )\\
+&\text{else } \bot
+\end{split}
+\]
+
+No information can be garnered from the term's return value, it is always the same, but clearly, it may have different runtime behaviours depending on its inputs. For instance, if x is ff, y is never evaluated. This captures the essence of CPS programming.
 
 \section{Procedures as decision trees}
-Graphs are often used to encapsulate certain aspects of a program or function's behaviour. These can be at any level of abstraction, such as a high level visualisation of the neurons in neural networks, or the low level control flow of a function's possible execution paths at runtime. The choice to include non-local control and error-sensitivity in SPCF means that its graph model for functions will have more structure than generic function graphs. Intuitively, it makes sense that the graph model for a sequential language should have to encode some essence of sequentiality, specifically the evaluation order of function arguments. This is exactly the case, one of the key findings of \cite{cartwright_1992}, was a denotational model for continuous functions in SPCF constructed from decision trees. 
+Graphs often encapsulate certain aspects of a program or function's behaviour. These can be at any level of abstraction, such as a high-level data flow visualisation of neural networks, or the low-level control flow of a function's possible execution paths at runtime. The inclusion of a non-local control and error sensitivity in SPCF means that its graph model for functions has more structure than generic function graphs. Intuitively, it makes sense that the graph model for a sequential language should have to encode some essence of sequentiality, specifically the evaluation order of function arguments. This is exactly the case and one of the key findings of \cite{cartwright_1992}, was a denotational model for continuous functions in SPCF constructed from decision trees. 
 
 Consider the term:
 \[\lambda xyz.\ \text{if0}\ x\ \text{then}\ (succ\ y)\ \text{else}\ (pred\ z)\]
-It is strict in its first argument, the strictness of its second and third arguments are determined by the value of x. If x is 0 then it will evaluate y and z otherwise. Thus this function is entirely representable by the index at which it is strict, along with a mapping of all possible input values to their respective outputs; this is written $\langle i, f \rangle$. Since functions are error sensitive, error1 and error2 will always map to error1 and error2 respectively, and since it is continuous $\bot$ always maps to $\bot$. Thus the function above can be represented as
-
-\[\langle 1, 
+It is strict in its first argument, and the value of x determines the strictness of its second and third arguments. In the case x is 0, y is evaluated, and otherwise, z is evaluated. It is possible to entirely represent this function in terms of the index at which it is strict, along with a mapping of all possible values of the strict argument to the return value of the function; this is written as the pair $\langle i, f \rangle$. Functions in SPCF are error sensitive and as such error1 and error2 will always map to error1 and error2 respectively. Since functions are continuous, $\bot$ always maps to $\bot$. Thus the function above can be visualised as the decision tree in \eqref{decision tree}.
+\begin{equation}\label{decision tree}
+\langle 1, 
 \begin{cases}
     \bot \mapsto \bot\\
     \text{error}_1 \mapsto \text{error}_1\\
@@ -623,24 +650,15 @@ It is strict in its first argument, the strictness of its second and third argum
           &\dots
     \end{cases} &\rangle\\
     \dots
-\end{cases} \quad\quad\rangle
-\]
-This can be represented as a decision tree with vertices being the set of pairings  $\langle i, f \rangle$ and edges leading from each vertex being the set of possible values of the $i$th argument. 
+\end{cases} \quad\quad\rangle    
+\end{equation}
 
-Other models for SPCF have been worked on, for example \cite{kanneganti_1993} provide an alternate model, reconstructed from this one, using the idea of a prime basis \citep{Winskel1980EventsIC} in an attempt to show that SPCF is a simple extension of the simply typed lambda calculus. We will focus on this original decision tree model because the idea of representing functions as trees is a helpful mental model to have when reasoning about the denesting action discussed in the next section.
+Vertices of the tree are the set of pairings  $\langle i, f \rangle$ and the edges leading from each vertex are the set of possible values for argument $i$. 
 
-\section{Procedures as tuples}
-\begin{definition}
-    A \emph{continuation} is a higher-order function representing the current state of a computation.
-    
-    Classically, continuations have one argument, the value of the computation so far, and return the final result of the computation when the rest of the program has also finished. They are analogous to callback functions or partial function applications in practical programming languages. 
-\end{definition}
+Other models for SPCF exist, for example, \cite{kanneganti_1993} provide an alternate model, reconstructed from this one, using the idea of a prime basis \citep{Winskel1980EventsIC} in an attempt to highlight other aspects of SPCF. We focus on this original decision tree model because the mental model of functions being equivalent to some branching structure is exceedingly helpful when reasoning about the denesting action discussed in the next section.
 
-The 'continuation passing style' (CPS) of programming is a style of programming where all function calls are tail calls. It is possible to have an entry point to the program have a return type being the empty type $0$ and all computation be through the calling of continuations. In some senses, CPS programming is the natural opposite of classical functional programming. With the latter, all computations are effectively the return values of functions, whereas with computations are instead function side effects captured by running continuations.
-
-\cite{laird_2007} relies on the notion of continuation passing to define his inj function which effectively represents bounded terms as a series of nested tuples consisting of the index at which a function is strict and a tuple of continuation functions for all the possible values at its strict argument. 
-
-The basis of the transformation of programs into an equivalent affinely typeable form set out by \cite{laird_2007} is a pair of injection and projection functions. The injection maps a term to a tuple of the index at which it is strict and a collection of continuation functions for each possible value which could have been applied.  
+\section{Procedures as tuples}\label{section:inj-proj}
+The basis of the transformation of programs into an equivalent affinely typeable form set out by Laird is a pair of injection and projection functions. The injection maps a term to a tuple of the index at which it is strict and a collection of continuation functions for each possible applicable value. 
 
 \begin{definition}
     The insertion of a value $x$ at the position $i$ into a given tuple $t = \langle t_0, \dots, t_{n-1} \rangle$ where $i \leq n$ is denoted $t\lfloor x \rfloor_i$. For example $t\lfloor x \rfloor_i = \langle t_0, \dots, t_{i-1}, x, t_i, \dots, t_{n-1} \rangle$
@@ -654,20 +672,21 @@ The basis of the transformation of programs into an equivalent affinely typeable
 \begin{definition}
     The function \emph{inj}, which transforms a term in the bounded SPCF to a so-called 'tuple form', is definable as \\
     inj: $\llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \rrbracket \rightarrow \llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \rrbracket$\\\\
-    inf($f$) =
+    inj($f$) =
     $\begin{cases}
         f &\text{if}\ f \in \{\top, \bot\}\\
         \langle i, \langle f'_j\ |\ j < n \rangle \rangle\ &\text{if}\ i = \text{catch } f  \text{, where } f'_i(x) =  f(x \lfloor j \rfloor_i)
     \end{cases}$\\\\
-   This is definable as the term
+    Here $\top$ is interpreted as an unrecoverable error, taking the place of error constants $error_1\ \&\ error_2$. 
+    This is definable as the affinely typeable term:
     \[
     \lambda f.\text{case}\langle \text{catch}\ f, \langle \langle j, \langle \pi_0(x),\dots,\pi_{m-1}\rangle \lfloor j \rfloor_i\ |\ i \leq m \rangle \rangle\ |\ j \le n \rangle
     \]
 \end{definition}
 
-To understand this term it helps to consider its type one component at a time and correspond that to its operational definition. $f$ is the only parameter of proj and has the type $\underline{n}^{m+1} \Rightarrow \underline{0}$, which means that $f$ is a function mapping $\underline{n}^{m+1}$, an $m+1$ fold product of numerals $\le$ n, to the empty type $\underline{0}$. A valid question would be to ask what types of this term look like and the answer would be uncurried functions written in a continuation passing style. The second half of inj's type is a pair with the first element being $\underline{m+1}$, precisely the type provided by 'catch $f$' and a tuple containing the same number of candidate continuation functions as there are numerals in the language. Each continuation has the type $\underline{n}^{m} \Rightarrow \underline{0}$ which can be seen as the same type as $f$, where it takes one less argument. When regarding the operational definition it can be seen that this is because an argument has already been applied in the strict position as part of the continuation.
+To understand this term it helps to consider its type one component at a time and correspond that to the term definition. $f$ is the only parameter of inj and has the type $\underline{n}^{m+1} \Rightarrow \underline{0}$, meaning $f$ is a function mapping $\underline{n}^{m+1}$, an $m+1$ fold product of numerals $\le$ n, to the empty type $\underline{0}$.  The second half of inj's type is a pair with the first element being $\underline{m+1}$, precisely the type provided by 'catch $f$' and a tuple containing the same number of candidate continuation functions as there are numerals in the language. Each continuation has the type $\underline{n}^{m} \Rightarrow \underline{0}$ which can be seen as the same type as $f$ if it took one fewer argument. Looking at the term, it is clear that this is because an argument is applied in the strict position as part of the continuation. 
 
-It must also map $\top$ to $\top$ and $\bot$ to $\bot$ to remain \emph{continuous}, a property that functions must have in the underlying domain SPCF is defined on.
+This action effectively represents bounded terms as a series of nested tuples consisting of the index at which a function is strict and a tuple of continuation functions for all the possible values at its strict argument. 
 
 \subsubsection{Projection from tuple form}
 \begin{definition}
@@ -686,75 +705,142 @@ It must also map $\top$ to $\top$ and $\bot$ to $\bot$ to remain \emph{continuou
     \]
 \end{definition}
 
-To understand this term, it helps to bear in mind the structure of $f$ when in tuple form. The parameter $t$ is of the form $\langle i, c\rangle$ where $i$ is the index at which $f$ is strict and $c$ is a tuple of continuation functions for each possible value supplied at the strict position. The parameter $x$ is the tuple of $f$'s parameters. In that sense the term defined here is a curried function and can be seen as having the type $\llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \times \underline{n}^{m+1} \rrbracket \rightarrow \llbracket \underline{0} \rrbracket$.
+To understand this term, it helps to bear in mind the structure of $f$ when in tuple form. The parameter $t$ is of the form $\langle i, c\rangle$ where $i$ is the index at which $f$ is strict and $c$ is a tuple of continuation functions for each possible value supplied at the strict position. The parameter $x$ is the tuple of $f$'s parameters. In that sense the term defined here is a curried function of the type $\llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \times \underline{n}^{m+1} \rrbracket \rightarrow \llbracket \underline{0} \rrbracket$.
 
 \subsection{Implementation details}
-The definitions of inj and proj are quite dense and require many working features prior to their implementation. In Chapter \ref{section: language representation} we discuss most of these, however it is worth noting some subtleties which may not be obvious:
+The definitions of inj and proj are quite dense and require many prerequisite features for their implementation. In Chapter \ref{section: language representation} we discuss most of these, however, it is worth noting some subtleties which may not be obvious:
 \begin{enumerate}
     \item Care is needed when defining if function arguments and tuples are 0-indexed or not. Both terms rely on the definition of catch to index a tuple, so their indexing must be consistent.
     \item Extra care is required when choosing a representation for tuples. There are two cases in the definitions of inj and proj, the n-fold product and the binary product. 
     \item The construction of each term depends on the type of their input, thus a suitable method of type inference is required. This influenced the decision to rely on type inference for type checking discussed in Chapter \ref{section: typing}.
 \end{enumerate}
 
-To expand on point (2), recall that the $n$-fold is a product with length $n$ where each element is of the same type, and that the binary product has no such restriction on typing. This should be clear by the fact inj returns a product of two elements with different types, a numeral and another product. It follows that it is not possible to define this pairing as an n-fold product and have the program be correctly typed. One solution is to construct all n-fold products from the repeated application of binary products, however having a representation for n-fold products relying on an underlying list is very convenient and provides many ready built functions such as 'map' to apply the same transformation to all elements. The alternative is to include definitions for both kinds of product including $\pi_1 \text{ and } \pi_2$ terms for the binary case. This enables the type to be correctly and statically determined. 
+To expand on point (2), recall that the $n$-fold is a product with length $n$ where each element is of the same type and that the binary product has no such restriction on typing. This should be clear by the fact that inj returns a product of two elements with different types, a numeral and another product. It follows that it is not possible to define this pairing as an n-fold product and have the program correctly typed.
+
+One solution is to construct all n-fold products from the repeated application of binary products, however, having a representation for n-fold products relying on an underlying list is very convenient and provides many operations out of the box. The alternative is to include definitions for both kinds of product including $\pi_1 \text{ and } \pi_2$ terms for the binary case. This enables the type to be correctly and statically determined. 
 
 \subsection{Affinely definable retraction on types}
 \begin{definition}
     A \emph{retraction} $X \trianglelefteq Y$ is a function $f: Y \rightarrow X$ where there exists a function $g: X \rightarrow Y$ such that $g \circ f = id_x$. 
     
-    A retraction is in some senses a weaker form of bijection, where elements from $X$ can be retrieved from $Y$ after an initial mapping without information loss, but without the implication the function being invertable.
+    A retraction is in some senses a weaker form of bijection, where elements from $X$ can be retrieved from $Y$ after an initial mapping without information loss, but without the implication of the function being invertible.
 \end{definition}
 
 For types $\tau$ and $\sigma$ in SPCF (and bounded SPCF) the retraction $\tau \trianglelefteq \sigma$ is ASPCF defineable by $\text{inj}: \tau \rightarrow \sigma$ and $\text{proj}: \sigma \rightarrow \tau$. For example $\text{proj}(\text{inj}(f))= f$.
 
 If $\tau_1 \trianglelefteq \tau_2$ and $\sigma_1 \trianglelefteq \sigma_2$, then $\tau_1 \times \sigma_1 \trianglelefteq \tau_2 \times \sigma_2$ and $\tau_1 \Rightarrow \sigma_1 \trianglelefteq \tau_2 \Rightarrow \sigma_2 $.
 
+Speak about the universal type, how it has to be affinely typeable to gain this desired effect.
+
+There is a flip-flop correspondence between the size of the term and the size of the type.
+
+Lair described a potential usecase to be a codebase which favours accuracy over size and this can be used to be more readable, I think it comprehensively is less clear. but further research could be done.
+
 \section{Transforming unbounded terms}
+The transformation for unbounded terms can be seen in much the same way as for bounded terms. The idea is to construct a retract $(o \rightarrow o) \rightarrow \underline{0} \trianglelefteq o \rightarrow o$ into a lower order type, and inductively apply it to 'reduce' a term's type until it is a universal type $o \rightarrow o$. It can be thought of as a direct extension of the process described in Section \ref{section:inj-proj}, but it must use a different representation rather than finite tuples, and this, in turn, creates some more machinery to handle. This is because to adapt the terms from Section \ref{section:inj-proj} directly for unbounded terms would require fixed point recursion, which is not affinely typeable.
+
+While this transformation \emph{can} be viewed as an extension of the bounded case, it may also help to view it from the point of view of a two-player game. Specifically, seeing as functions may be represented as decision trees, its traversal may be represented as a game \emph{strategy} $\sigma : (\textbf{N} \times \textbf{N})^* \rightarrow \textbf{N}_\bot^\top$, dictating the responses a player with a finite list of pairs of moves. Put differently, it can represent the application of a function $f$ to its argument $g \in \textbf{N}\rightarrow \textbf{N}_\bot^\top$ by sequentially choosing a number $n$ and evaluating the second player's response $g(n)$ until the game is stopped by either player choosing $\top$ or $\bot$.
+
+A function $f : (\textbf{N} \rightarrow \textbf{N}_\bot^\top)$ strategy is definable as strat$(f)(s) = \text{catch}(\lambda e.f(e[s]))$.
+
+\begin{definition}
+    \emph{label} is a non-local control operator similar to catch. However, it returns the value of a function's strict argument rather than its index. It is directly definable in terms of catch and is in some senses a weaker version of the \emph{call/cc} function defined by Cartwright and Felleisen. An informal example: label $\lambda k.(k N) = k$.
+\end{definition}
+\begin{definition}
+    Sequential \emph{composition} $(M^o; N^{o \rightarrow \tau}): \tau$ is identical to term application but with the guarantee to always be affinely typable.
+\end{definition}
+\begin{definition}
+    \emph{Iteration} is represented by a constant \emph{it}: $(o \rightarrow o) \rightarrow o \rightarrow \underline{0}$ and is representable as the term $\lambda f. Y \lambda g. \lambda x. (f;x)g$.
+\end{definition}
+\begin{definition}
+    An surjective partial pairing constant \emph{pair}: $o \rightarrow o \rightarrow o$ is definable as pair(m)(n) = $2^m(2n + 1)$ with accessors definable such that \emph{fst}$(2^m(2n + 1)) = m$ and \emph{snd}$(2^m(2n + 1)) = n$.
+
+    The term $N; (pair M)$ is written as $M * N$ and finite lists of $k$ natural numbers may be represented as the numeral $n_1 * (n_2 * \dots * (n_k * 0))$.
+\end{definition}
+
+The surjective pairing is the star of this transformation, it quite remarkably uses the fundamental theorem of arithmetic to represent pairs of numbers as a unique number. This, along with \emph{label} and favouring iteration over recursion, is what enables the modelling of all partial recursive functions in ASPCF. This is important because the argument is made that ASPCF can model precisely the same functions described by Turning machines, hence it is fully expressive. It is used to replace the explicit product type used in Section \ref{section:inj-proj}.
+
+\begin{definition}
+\[
+\begin{split}
+    \text{seq}_i(k, e)& \in ((\mathbf{N} \times \mathbf{N})*)\\
+    \text{seq}_0(k, e)& = \epsilon \\
+    \text{seq}_{n+1}(k, e)& = 
+    \begin{cases}
+        \top \text{ if seq}_n(k,e) = \top\\
+        \top \text{ if seq}_n(k,e) = s \text{ and }k(s) = \top\\
+        \top \text{ if seq}_n(k,e) = s \text{ and }k(s) = i \text{ and } e(i) = \top\\
+        s(i, j) \text{ if seq}_n(k,e) = s \text{ and }k(s) = i \text{ and } e(i) = j\\
+        \bot \text{ otherwise }
+    \end{cases}
+\end{split}
+\]
+\end{definition}
+
+\begin{definition}
+    \[
+    \text{fun}(k)(e)=
+    \begin{cases}
+        \top \text{ if } seq_n(k,e) = \top \quad (\exists n)\\
+        \bot \text{ otherwise}
+    \end{cases}
+    \]
+    Where fun(strat($f$)) = $f$.
+\end{definition}
+
+\begin{definition}
+    inj is definable as the term
+    \[
+    \lambda f. \lambda x. \text{ label} \lambda k. k((\text{strat}(\lambda y.k((f y) * 1))x)*0)
+    \]
+\end{definition}
+
+\begin{definition}
+    proj is definable as the term
+    \[
+    \lambda g. \lambda h. \text{ label} \lambda k. \text{fun} (\lambda x.\text{If0}(\text{snd}(x))\ \text{then}\ (k\ \text{fst}(x)) \text{ else } g\ \text{fst}(x))
+    \]
+\end{definition}
+
+The internal conditional statement can be seen as an encoding for the same case conditional used in Section \ref{section:inj-proj} for this new representation of lists as numerals.
+
+
+\begin{definition}
+    Equality $(M = N):o$ returns 0 if M and N evaluate to the same numeral and 1 otherwise. 
+\end{definition}
+
+\begin{definition}
+    strat = $\lambda f. \lambda y. \text{ label }\lambda g.f(\lambda x \text{ label } \lambda k (\text{sub}^* y))$ where sub$(g, k, x) = \lambda v. \text{ If0 } v \text{ then } k(g\ x) \text{ else } (\text{If0 } (\text{fst}(v) = x) \text{ then } k\ \text{fst}(\text{snd } v) \text{ else snd } v )$
+\end{definition}
+
+\subsection{Implementation notes}
+We do not provide a working implementation of the affine transformation for unbounded terms, however, we have some observations which may be of interest:  
+
+\begin{enumerate}
+    \item The surjective pairing is sound but rather awkward to implement. It is tempting to use an intermediate representation, for example, two terms which work together to represent a partially applied pair and a fully applied pair, however, this raises further oddities when attempting to infer its type, making a naive implementation more appealing. Ironically, it would probably be easier to construct this term with a low-level language like C, where handling numbers as concatenations of other numbers is more idiomatic than in a strict functional language like Haskell.
+    
+    \item While \emph{label} is conceptually similar to catch, it is easiest to implement as a separate construct. Operationally speaking, it is easier to consider it as another form of tree traversal than encode it in terms of catch as suggested originally by Felleisen.
+
+    \item An interesting point of exploration is the attempt to naively implement the transformation for bounded terms using Haskell's lazy lists, which allow the ergonomic creation and mutation of infinite sequences. This would ignore the point of making the transformation affinely typeable but has the potential to achieve the same results if that property was not required. 
+\end{enumerate}
 
 \section{Conclusion}
-
-
-
-
-Refactoring is the action of rewriting code without changing its behaviour. Many popular forms of refactoring exist 
-
-The transformation is comparable to a form of refactoring. 
-
-how it is done 
-
-that will take a while.
-
-why it works.
-
-Some insights and intuitions from theauthor to demonstrate understanding.
-
-How is it fully expressive
-
-What tie ins are there? categories
-
-Given a working interpreter
-and language representation, what are we doing here?
-
-\subsection{Injection}
-\subsection{Projection}
-
-how it is different from general SPCF
-\section{Unbounded Terms}
-how it is different from general SPCF
+We thoroughly discuss the denesting action, its roots in CPS programming, and various insights from the implementation process. We provide a real-world implementation of the transformation on bounded terms and discuss areas of exploration for unbounded terms.
 
 \chapter{Results}
 why is this better?
 is it more readable?
 some comments here even if brief would create a nice conclusion
 
-How much it grows. Example term with differing upper bound. Then differening type.
+How much it grows. Example term with differing upper bound. Then different type.
 
+a graph of growth of the term (it gets very large) with type size and upper bound size.
+
+a graph on runtime to perform the transformation.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusions}
 
-%%
-%% Now we are back to the standard project contents that you should include
-%%
+
 
 This is the chapter in which you review the major achievements in the light of your original objectives, critique the process, critique your own learning and identify possible future work.
 
@@ -762,13 +848,16 @@ highlight novelties.
 
 \vfill
 \section{Word Count}
-Number of words until this point, excluding front matter: XXX.
+The number of words until this point, excluding front matter: XXX.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliography{bibliography}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \appendix
+
+\chapter{Code Repository Link}
+\url{https://github.com/jayrabjohns/dissertation-refactoring-spcf}
 
 %%
 %% Use the appendix for major chunks of detailed work, such as these. Tailor
@@ -793,7 +882,7 @@ First macros are defined for digits and string characters. Then list of token pa
 \lstinputlisting[basicstyle=\scriptsize]{Lexer.x}
 
 \section{Parser}\label{appendix: parser}
-The same set of tokens defined in the lexer are brought forward to the definition of our parser. It's this compatibility between happy and alex that make them so popular. Then a series of rules are defined for how to inductively construct an AST from the defined tokens. Finally, some helper functions are defined enabling our program to interface with the parser later on. 
+The same set of tokens defined in the lexer are brought forward to the definition of our parser. It's this compatibility between Happy and Alex that makes them so popular. Then a series of rules are defined for how to inductively construct the AST from the defined tokens. Finally, some helper functions are defined enabling our program to interface with the parser later. 
 
 \lstinputlisting[basicstyle=\scriptsize]{Parser.y}
 
@@ -809,9 +898,82 @@ The same set of tokens defined in the lexer are brought forward to the definitio
 %\end{multicols}
 %\end{landscape}
 
-\chapter{Term evaluations}\label{appendix: term evaluations}
-Type judgements from the provided example program.
-\begin{minted}{haskell}
+\chapter{Example usage of injection and projection terms}
+
+\begin{lstlisting}[mathescape, caption={Interpreter logs from applying injection and projection terms. The upper bound on values n = 2, effectively representing the booleans.}]
+f = \p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>
+
+proj(inj(f)) = 
+\b:(NatxNat) => 
+  Case <
+    $\pi$1(Case <Catch (\p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>), 
+        <<0, <(\a:Nat => Case <Case <1, <0, (Case <0, a>)>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <1, (Case <0, a>)>>, <$\bot$, $\bot$>>)>>,
+        <1, <(\a:Nat => Case <Case <1, <(Case <0, a>), 0>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <(Case <0, a>), 1>>, <$\bot$, $\bot$>>)>>>>
+      ),
+    <(Case <Case <0, b>,
+      <((Case <0, $\pi$2(Case <Catch (\p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>), 
+          <<0, <(\a:Nat => Case <Case <1, <0, (Case <0, a>)>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <1, (Case <0, a>)>>, <$\bot$, $\bot$>>)>>, 
+          <1, <(\a:Nat => Case <Case <1, <(Case <0, a>), 0>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <(Case <0, a>), 1>>, <$\bot$, $\bot$>>)>>>>)>
+        ) <(Case <1, b>)>
+        ), 
+        ((Case <1, $\pi$2(Case <Catch (\p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>),
+          <<0, <(\a:Nat => Case <Case <1, <0, (Case <0, a>)>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <1, (Case <0, a>)>>, <$\bot$, $\bot$>>)>>,
+          <1, <(\a:Nat => Case <Case <1, <(Case <0, a>), 0>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <(Case <0, a>), 1>>, <$\bot$, $\bot$>>)>>>>)>
+        ) <(Case <1, b>)>
+        )>>
+    ),
+    (Case <Case <1, b>,
+      <((Case <0, $\pi$2(Case <Catch (\p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>),
+          <<0, <(\a:Nat => Case <Case <1, <0, (Case <0, a>)>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <1, (Case <0, a>)>>, <$\bot$, $\bot$>>)>>,
+          <1, <(\a:Nat => Case <Case <1, <(Case <0, a>), 0>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <(Case <0, a>), 1>>, <$\bot$, $\bot$>>)>>>>)>
+        ) <(Case <0, b>)>
+        ),
+        ((Case <1, $\pi$2(Case <Catch (\p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>),
+          <<0, <(\a:Nat => Case <Case <1, <0, (Case <0, a>)>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <1, (Case <0, a>)>>, <$\bot$, $\bot$>>)>>,
+          <1, <(\a:Nat => Case <Case <1, <(Case <0, a>), 0>>, <$\bot$, $\bot$>>), (\a:Nat => Case <Case <1, <(Case <0, a>), 1>>, <$\bot$, $\bot$>>)>>>>)>
+        ) <(Case <0, b>)>
+        )>>
+    )>>
+
+\end{lstlisting}
+
+\chapter{Example program execution}\label{appendix: term evaluations}
+\subsection{Program Definition}
+
+\captionof{listing}{A program written in our implementation of SPCF consisting of multiple term definitions and evaluations\label{listing:example-program-appendix}}
+\begin{minted}[breaklines]{haskell}
+addLeftTerm = \f:Nat->Nat->Nat => \x:Nat => \y:Nat => if0 x then y else (succ (f (pred x) y));
+add = \x:Nat => \y:Nat => (fix addLeftTerm) x y;
+
+mulTerm = \f:Nat->Nat->Nat => 
+          \x:Nat => 
+          \y:Nat => 
+            if0 y 
+              then x 
+              else (add x (f x (pred y)));
+
+mul = \x: Nat => \y:Nat => (fix mulTerm) x (pred y);
+
+factorial = \f: Nat->Nat => \n:Nat => if0 n then 1 else (mul n (f (pred n)));
+fact = \n: Nat => (fix factorial) n;
+
+eval (fact 5);
+
+addLeftTerm = \f:Nat->Nat->Nat => 
+              \x:Nat => 
+              \y:Nat => if0 x then y else (succ (f (pred x) y));
+add = \x:Nat => \y:Nat => (fix addLeftTerm) x y;
+
+eval (add error1 error2);
+
+addRightTerm = \f:Nat->Nat->Nat => \x:Nat => \y:Nat => if0 y then x else (succ (f x (pred y)));
+add' = \x:Nat => \y:Nat => (fix addRightTerm) x y;
+eval (add' error1 error2);
+\end{minted}
+
+\subsection{Program Type Judgements}
+\captionof{listing}{Interpreter logs for typing the program in \ref{listing:example-program-appendix}}
+\begin{minted}[breaklines]{haskell}
 Type judgement for addLeftTerm = \f:o->o->o => \x:o => \y:o => if0 x then y else (succ (f (pred x) y))
 [f]: o->o->o
 [x]: o
@@ -919,5 +1081,7 @@ Type judgement for eval {fact 5}
 [5]: o
 [fact 5]: o
 \end{minted}
+
+\subsection{Program Evaluation}
 
 \end{document}
