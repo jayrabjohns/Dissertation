@@ -9,7 +9,7 @@
 \usemintedstyle{vs}
 \usepackage{caption}
 
-\title{\bf $\langle$Dissertation Title$\rangle$}
+\title{SPCF: Interpreter Development and Affine Program Transformation}
 \author{Jay Rabjohns}
 \date{Bachelor of Science in Computer Science\\ 
       The University of Bath\\
@@ -51,6 +51,8 @@
 \hypersetup{pageanchor=true}
 \abstract
 $\langle$The abstract should appear here. An abstract is a short paragraph describing the aims of the project, what was achieved and what contributions it has made.$\rangle$
+
+What in the world goes here.
 \newpage
 
 \tableofcontents
@@ -72,6 +74,16 @@ $\langle$The abstract should appear here. An abstract is a short paragraph descr
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
 This is the introductory chapter.
+
+what to introduce?
+
+probably the problem I'm trying to solve and all of that. Maybe look at first thing I wrote
+
+It is common practice in functional languages to nest function calls, that is, to share variables from a function's scope as arguments of another function. It allows for incredibly terse and expressive programs but complicates their implementation. It is theoretically possible to refactor programs to an equivalent form while eliminating this behaviour \cite{laird_2007}. More formally, any term of the SPCF is equivalent to another term which satisfies affine typing rules, which we will discuss later on. This is what forms the basis of the project, where we will endeavour to implement an interpreter for SPCF capable of performing this refactoring action.
+
+aliken it to refactoring tail recursion etc. 
+
+probably cover a bit about interpreter, semantics, based on lambda calculus and journey up.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Literature and Technology Survey}
@@ -388,7 +400,7 @@ Type judgement for add = \x:o => \y:o => (fix addLeftTerm) x y
 \end{listing}
 
 \section{Term Evaluation}\label{section: evaluation}
-Typically when reducing expressions it is tempting to only consider closed terms, terms with no free variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
+Typically when reducing expressions it is tempting only to consider closed terms, terms with no free variables. However, to define rigorous operational semantics, we must consider all scenarios. It is common to represent the rules for reducing expressions as a series of 'small-step' operational semantics, which provide rules on what to do for a given term. Each step could be applied at any point in the computation and as such there could be free variables to account for. A common way of defining these rules is through the use of evaluation contexts.
 
 It is worth noting that not all calculi require a notion of evaluation contexts to define evaluation. In a more classical example of a simply typed lambda calculus, basic datatypes are cleverly represented through a series of higher-order functions, called Church encodings. In that example, a term's computation can be defined as its $\beta$-reduction. It is our more complex language definition which calls for the need for evaluation contexts when defining its evaluation rules.
 
@@ -483,16 +495,27 @@ Evaluation rules are defined similarly to typing rules and together form a small
 \subsubsection{Bounded term evaluation}
 For the bounded version of SPCF there are additional evaluation rules needed for products and the conditional statement case. 
 
-\subsection{Observing sequentiality with Catch}\label{section: catch}
-One very important and helpful insight into the behaviour of a program is the order in which it evaluates its arguments. It may not be immediately obvious but armed with that knowledge it is possible to completely define a procedure's behaviour. One way for programmers to determine a procedure's evaluation order is by using errors, by applying an error in different positions it is possible to observe which position leads to an error.
+\subsection{Observing sequentiality with catch}\label{section: catch}
+An important and helpful insight into a program's behaviour is the order in which its arguments are evaluated. It may not be immediately obvious, but armed with that knowledge, and some other structure we are yet to discuss, it is possible to completely define a procedure's behaviour. 
 
-SPCF forces all procedures to be error-sensitive, meaning that if an error is evaluated it is immediately returned. For example, $+_l$ $error1$ $error2$, using $+_l$ defined in Section \ref{section: observing sequentiality}, would return $error1$. The inclusion of catch into SPCF allows programs to observe evaluation orders. \cite{cartwright_1992} define it as a family of procedures with types $(\tau_1 \rightarrow \dots \tau_n \rightarrow o) \rightarrow o$ where if $f$ is a procedure of type $\tau_1 \rightarrow \dots \tau_n \rightarrow o$, then catch $f$ returns $i - 1$ if f is strict in its $i$th argument and $k+n$ if $f$ returns a constant. 
+A programmer may determine the evaluation order for a given procedures arguments by exploiting that functions in SPCF are error-sensitive. That is, that by supplying unique error values as arguments and observing which error is thrown first, a programmer may observe the sequential evaluation order of a procedure. For example, consider the left addition operator defined in Section \ref{section: observing sequentiality}, $+_l\ error1\ error2 = error1$. This is insightful but is limited to the programmer recording the evaluation order between executions.
 
-In our implementation of Catch, the AST continues to be walked, but in a slightly different way. Like before function constants and applications essentially continue the downward traversal of catch, being careful to evaluate applications and Ifzero in sequential order of their arguments. Things become more interesting when evaluating a lambda abstraction. The label of the abstraction is pushed to a stack maintained by the catch function before continuing downwards. When a variable is reached, the index of the last occurring instance of the label in the stack is returned. If an error is reached, that error is returned, and if a numeral constant is reached,  that value along with the length of the current stack is returned. Catch was originally defined in terms of a lexically scoped control stack, which equally describes this implementation.
+\cite{cartwright_1992} include an operator called 'catch' in SPCF which allows the observation of evaluation order within a program. It is defined as a family of procedures with types $(\tau_1 \rightarrow \dots \tau_n \rightarrow o) \rightarrow o$ where if $f$ is a procedure of type $\tau_1 \rightarrow \dots \tau_n \rightarrow o$, then catch $f$ returns $i - 1$ if f is strict in its $i^{\text{th}}$ argument and $k+n$ if $f$ returns a constant. This operator is a form of non-local control, where local evaluation is terminated and control transferred elsewhere in the program.
 
-Catch encodes non-local control into SPCF programs, meaning it is possible to stop a term's execution prematurely and jump to somewhere else in the program. This feature is not normally present in $\lambda$-calculi and is one of the things which uniquely identifies SPCF from its peers. We discuss further the implications of the existence of catch in Chapter \ref{chapter: denesting}, along with how it is used to construct the affinely definable denesting transformation.
+\subsubsection{Implementing non-local control}
+When evaluating a catch statement, a second non-statefull traversal of the AST is performed from the current term until an exit condition is met. Function constants and applications simply continue the downward traversal of catch, being sure to evaluate their arguments in sequential order. To evaluate $\lambda$-abstractions, the binding variable's label is pushed to a control stack before also continuing downward. When a variable is reached, the index of the last occurring instance of the label in the stack is returned. In the case of error constants not passed as arguments, the length of the current control stack is returned. Catch was originally defined in terms of a lexically scoped control stack, which equally describes this implementation.
 
-\subsection{Examples}
+We discuss further the implications of the existence of catch in Chapter \ref{chapter: denesting}, along with how it is used to construct the affinely definable denesting transformation.
+
+this method has some assumptions:
+\begin{enumerate}
+    \item Functions are uncurried, meaning that terms of a product type are treated as a single argument.
+    \item Terms must be closed. 
+\end{enumerate}
+
+Terms must be closed because catch does not keep track of the state of other parts of the program. It would be theoretically possible to implement catch without this requirement by having a global control stack which kept track of all binding variables then by offsetting the index returned by catch with the legnth of the global stack. However this would have non-obvious implications on the index of unbound variables which would be negative.
+
+This method assumes that functions are uncurried, meaning that the product types are treated as a single argument. This relies on functions being uncurried function representation If an error is evaluated in this way, the current length of the control stack is returned, indicating which 
 
 \section{Parser}
 As part of the project, we have provided a lexer and parser for SPCF to make experimentation with the language easier and to bring it closer to practical programming languages. A lexer and parser make up what is known as a compiler frontend and together they enable writing programs as plain text with some syntax sugar, making programs significantly easier to read and write. The execution pipeline looks like this:
@@ -583,12 +606,18 @@ eval (add error1 error2);
 \end{listing}
 
 \section{Correctness Testing}
+The interpreter is complex and relies on many typing and evaluation rules, creating many opportunities for bugs to shroud themselves in non obvious ways. This is exasperated by the prevelance of continuations and callbacks in the the program logic of the denesting action, implemented in Chapter \ref{chapter: denesting}, leading to cryptic and misleading errors being thrown far away from where the bug lies. This creates the perfect conditions for a kind of 'second-order' logical error, where it is hard discerning whether issues relate to the internals of the interpreter or the program logic built on top of it.
 
+In lieu of a proper debugger for SPCF programs, the interpreter is able to output logs of intermediate evaluation and type inference steps, approximating a kind of call stack for term manipulations. These logs may be observed and compared against solutions written by hand.
+
+Unit tests help verify that individual components are working as expected, narrowing the potential scope for bugs, or at least explicitly stating erroneous logic as intentional at the time. The project heavily relies on a combination of unit tests and by hand evaluation to verify that its behaviour is correct. One of the primary benefits of units tests is that they may be algorithmically regressed upon as more features are added, which is enforced by a GitHub action acting as a simple CI system \footnote{\url{https://github.com/jayrabjohns/dissertation-refactoring-spcf/blob/main/.github/workflows/haskell.yml}}.
+
+A looser guarantee of correctness is also provided by Haskell, which has a strong type system and strict compiler, both of which perform many checks at compile time. For example, integers are guaranteed to be integers and nullary cases are guaranteed to be handled. 
 
 \section{Conclusion}
-The goal of implementing the SPCF denesting action defined by Laird relies on a large amount of background material and prerequisite tools working together. We supply a suitable runtime representation for SPCF and a method for evaluating terms. Building upon this, we use code generation tools to create an interpreter frontend for the language, allowing for easier experimentation and bringing it closer to practical programming languages. We discuss a suitable approach to typing, emphasising how the denesting action requires us to prefer type inference over type checking. Particular focus is given to the catch term as it represents a feature not commonly present in other $\lambda$-calculi and requires some nuance when implementing it from scratch. At each stage, points are reinforced with definitions and examples where necessary.
+The goal of implementing the SPCF denesting action defined by Laird relies on a large amount of background material and prerequisite tools working together. We supply a suitable runtime representation for SPCF and a method for evaluating terms. Building upon this, we use code generation tools to create an interpreter frontend for the language, allowing for easier experimentation and bringing it closer to practical programming languages. We discuss a suitable approach to typing, emphasising how the denesting action requires us to prefer type inference over type checking. Particular focus is given to the catch term as it represents a feature not commonly present in other $\lambda$-calculi and requires some nuance when implementing it from scratch. An overview of the aproach of correctness testing is provided with discussions of the kinds of error prone in programs of this type. At each stage points are reinforced with definitions and examples where necessary.
 
-In the next Chapter, we discuss in more detail the denesting action and implications of its implementation.
+In the next Chapter, we discuss in more detail the denesting action and its implementation.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Affinely definable denesting transformation}\label{chapter: denesting}
@@ -598,7 +627,7 @@ Laird originally split the problem into two cases, the transformation of bounded
 
 In this chapter, we elaborate on the refactoring action, how it uses SPCF-specific features, and comment on its implementation details. We regularly comment on specific details relevant to bounded and unbounded terms individually. Remember, this transformation aims to construct observationally equivalent terms that adhere to affine typing rules. There are two primary components to this, an injection to an intermediate 'tuple representation' consisting of $\top$ and $\bot$ elements, and a projection to recover it again.
 
-\subsection{Continuation passing style}
+\section{Continuation passing style}
 CPS is a style of programming where all function calls are tail calls. It is possible to have an entry point to the program return the empty type $0$ and all computation be through the calling of continuations.
 
 \begin{definition}
@@ -660,6 +689,11 @@ Other models for SPCF exist, for example, \cite{kanneganti_1993} provide an alte
 \section{Procedures as tuples}\label{section:inj-proj}
 The basis of the transformation of programs into an equivalent affinely typeable form set out by Laird is a pair of injection and projection functions. The injection maps a term to a tuple of the index at which it is strict and a collection of continuation functions for each possible applicable value. 
 
+
+It doesn't make sense that projection is 1 indexed sometimes nad 0 index others.
+
+I think the I and j and the wrong way around in injection. consequently I should be in the lhs of the binary product.
+
 \begin{definition}
     The insertion of a value $x$ at the position $i$ into a given tuple $t = \langle t_0, \dots, t_{n-1} \rangle$ where $i \leq n$ is denoted $t\lfloor x \rfloor_i$. For example $t\lfloor x \rfloor_i = \langle t_0, \dots, t_{i-1}, x, t_i, \dots, t_{n-1} \rangle$
 \end{definition}
@@ -669,7 +703,7 @@ The basis of the transformation of programs into an equivalent affinely typeable
 \end{definition}
 
 \subsubsection{Injection to tuple form}
-\begin{definition}
+\begin{definition}\label{def:inj}
     The function \emph{inj}, which transforms a term in the bounded SPCF to a so-called 'tuple form', is definable as \\
     inj: $\llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \rrbracket \rightarrow \llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \rrbracket$\\\\
     inj($f$) =
@@ -680,7 +714,7 @@ The basis of the transformation of programs into an equivalent affinely typeable
     Here $\top$ is interpreted as an unrecoverable error, taking the place of error constants $error_1\ \&\ error_2$. 
     This is definable as the affinely typeable term:
     \[
-    \lambda f.\text{case}\langle \text{catch}\ f, \langle \langle j, \langle \pi_0(x),\dots,\pi_{m-1}\rangle \lfloor j \rfloor_i\ |\ i \leq m \rangle \rangle\ |\ j \le n \rangle
+    \lambda f.\text{case}\langle \text{catch}\ f, \langle \langle i, \langle \lambda x.f(\langle \pi_0(x),\dots,\pi_{m-1}(x)\rangle \lfloor j \rfloor_i)\ |\ j < n  \rangle \rangle\ |\ i \leq m \rangle \rangle
     \]
 \end{definition}
 
@@ -688,8 +722,10 @@ To understand this term it helps to consider its type one component at a time an
 
 This action effectively represents bounded terms as a series of nested tuples consisting of the index at which a function is strict and a tuple of continuation functions for all the possible values at its strict argument. 
 
+This concrete definition is a slight amendment from Laird's original definition. Originally, the roles of $i$ and $j$ are swapped, a subtle change which changes the direction in which the tuples are nested. This appears to be inconsistent with the type structure and descriptions of the term elsewhere in the paper and thus it is assumed to be a typographical error.
+
 \subsubsection{Projection from tuple form}
-\begin{definition}
+\begin{definition}\label{def:proj}
     The function \emph{proj}, which transforms a term in tuple form back to its original type, is definable as \\
     proj: $\llbracket \underline{m + 1} \times (\underline{n}^{m} \Rightarrow \underline{0})^n \rrbracket \rightarrow \llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \rrbracket$\\\\
     proj($\langle i, c\rangle$)($x$) =
@@ -701,7 +737,7 @@ This action effectively represents bounded terms as a series of nested tuples co
     \end{cases}$\\\\
     This is definable as the term
     \[
-    \lambda tx. \text{case } \langle \pi_1(t), \langle \text{case } \langle \pi_i(x), \langle \pi_j(\pi_2(t)) \lceil \langle \pi_0(x), \dots, \pi_m(x)\rangle\rceil_j\ | \ j \le n \rangle \rangle\ |\ i \leq m \rangle \rangle
+    \lambda tx. \text{case } \langle \pi_1(t), \langle \text{case } \langle \pi_i(x), \langle \pi_j(\pi_2(t)) \lceil \langle \pi_0(x), \dots, \pi_m(x)\rangle\rceil_j\ | \ j < n \rangle \rangle\ |\ i \leq m \rangle \rangle
     \]
 \end{definition}
 
@@ -710,23 +746,74 @@ To understand this term, it helps to bear in mind the structure of $f$ when in t
 \subsection{Implementation details}
 The definitions of inj and proj are quite dense and require many prerequisite features for their implementation. In Chapter \ref{section: language representation} we discuss most of these, however, it is worth noting some subtleties which may not be obvious:
 \begin{enumerate}
-    \item Care is needed when defining if function arguments and tuples are 0-indexed or not. Both terms rely on the definition of catch to index a tuple, so their indexing must be consistent.
+    \item Care is needed when defining if function arguments and tuples are 0-indexed or not. Both terms rely on the definition of catch to index a tuple, so their indexing must be consistent. This is another justification for using a stateless catch operation as mentioned in Section \ref{section: catch}.
     \item Extra care is required when choosing a representation for tuples. There are two cases in the definitions of inj and proj, the n-fold product and the binary product. 
     \item The construction of each term depends on the type of their input, thus a suitable method of type inference is required. This influenced the decision to rely on type inference for type checking discussed in Chapter \ref{section: typing}.
 \end{enumerate}
 
-To expand on point (2), recall that the $n$-fold is a product with length $n$ where each element is of the same type and that the binary product has no such restriction on typing. This should be clear by the fact that inj returns a product of two elements with different types, a numeral and another product. It follows that it is not possible to define this pairing as an n-fold product and have the program correctly typed.
+To expand on point (2), recall that the $n$-fold product is a product with length $n$ where each element is of the same type and that the binary product has no such restriction on typing. This should be clear by the fact that inj returns a product of two elements with different types, a numeral and another product. It follows that it is not possible to define this pairing as an n-fold product and have the program correctly typed.
 
-One solution is to construct all n-fold products from the repeated application of binary products, however, having a representation for n-fold products relying on an underlying list is very convenient and provides many operations out of the box. The alternative is to include definitions for both kinds of product including $\pi_1 \text{ and } \pi_2$ terms for the binary case. This enables the type to be correctly and statically determined. 
+One solution is to construct all n-fold products from the repeated application of binary products, however, having a representation for n-fold products relying on an underlying list is very convenient and provides many operations out of the box. The alternative is to include definitions for both kinds of product including $\pi_1 \text{ and } \pi_2$ terms for the binary case. This approach keeps the retains the convenient representation for $n$-fold products and makes it possible to statically determine the types of constituent terms in a binary product.
 
 \subsection{Affinely definable retraction on types}
 \begin{definition}
     A \emph{retraction} $X \trianglelefteq Y$ is a function $f: Y \rightarrow X$ where there exists a function $g: X \rightarrow Y$ such that $g \circ f = id_x$. 
     
-    A retraction is in some senses a weaker form of bijection, where elements from $X$ can be retrieved from $Y$ after an initial mapping without information loss, but without the implication of the function being invertible.
+    In other words, elements from $X$ may be recovered from $Y$ after an initial mapping without information loss. It is in some senses a weaker form of bijection, where there is no implication of f and g being invertable.
 \end{definition}
 
-For types $\tau$ and $\sigma$ in SPCF (and bounded SPCF) the retraction $\tau \trianglelefteq \sigma$ is ASPCF defineable by $\text{inj}: \tau \rightarrow \sigma$ and $\text{proj}: \sigma \rightarrow \tau$. For example $\text{proj}(\text{inj}(f))= f$.
+The definitions for proj and inj form an affinely definable retraction 
+\begin{equation}
+    \underline{n}^m \Rightarrow \underline{0} \trianglelefteq \underline{m}^{n^m \cdot (m + 1)} \quad (\forall n > 0)
+\end{equation}
+
+It is true that terms of any type in the SPCF may be affinely typeable. 
+There is another retract to transform types into the form readily usable by the described transformation. 
+That other retract is : 
+
+
+Inj and proj form an inductive base case, after transforming terms in the other way, they may have this applied to them.
+
+Inj effectively reduces the order of a type by one. 
+this step may be repeated $m+1$ times to get a term of the type:
+\begin{align}
+    n^{m+1} \Rightarrow \underline{0} &\rightarrow \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \tag*{(Once)}\\
+    &\rightarrow \underline{m+1} \times (\underline{m} \times (n^{m-1} \Rightarrow \underline{0})^n)^n \tag*{(Twice)}\\
+    &\rightarrow \underline{m+1} \times (\underline{m} \times (\dots \underline{1} \times(n^0 \Rightarrow \underline{0})^n\dots)^n)^n \tag*{(m+1 times)}
+\end{align}
+Each step reduces the order of the terms type by one down to 0. Regard that the inner most product of continuations in the $m+1$ case has elements of the type $n^0 \Rightarrow \underline{0} \equiv I \Rightarrow \underline{0}$ which is isomorphic to $\underline{0}$. Thus a function can be entirely encoded as a product.
+
+The original type structure is recoverable with proj.
+\begin{align}
+    \underline{m+1} \times (\underline{m} \times (\dots (n^0 \Rightarrow \underline{0})^n\dots)^n)^n &\rightarrow \underline{m+1} \times (m \times (n^{m-1} \Rightarrow \underline{0})^n)^n \tag*{(m-1 times)}\\
+    &\rightarrow \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \tag*{(m times)}\\
+    &\rightarrow n^{m+1} \Rightarrow \underline{0} \tag*{(m+1 times)}
+\end{align}
+The result is an affinely typable term contextually equivalent to $f$, with no function nesting. In other words, $(\text{proj} \circ \text{inj})\ f = f$. Seeing as Haskell has an operator for function composition, this is rather satisfyingly representable in Haskell as \mintinline{haskell}{(proj . inj) f}.
+
+\subsubsection{Implementation notes}
+The repeated application of these terms requires some nuance. Clearly, their output types for a single step do not match the corresponding input types. It must first pattern match on the terms to selectively apply the relevant step to the correct subterm. 
+
+For inj, recognise that we must match on a sub term of the type  $\llbracket n^{m} \Rightarrow \underline{0} \rrbracket$. Considering the concrete definition for inj \eqref{def:inj} the relevant subterm to reapply to is each element of the $n$-fold product:
+\[
+    \langle \lambda x.f(\langle \pi_0(x),\dots,\pi_{m-1}(x)\rangle \lfloor j \rfloor_i)\ |\ j < n  \rangle
+\]
+This can be acquired by pattern matching on the preceding terms 
+\begin{equation}\label{eq:patten_match}
+    \lambda f.\text{case}\langle \text{catch}\ f, \langle \langle i,\underline{\hspace{1cm}}\ |\ j < n  \rangle \rangle\ |\ i \leq m \rangle \rangle
+\end{equation}
+
+Similarly for proj \eqref{def:proj}, we must find subterms with the type $\llbracket \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \rrbracket$. In this case we must first traverse the term until reaching the previous base case:
+\[\underline{1} \times(n^0 \Rightarrow \underline{0})^n\]
+then work backwards by using the same pattern as for inj \eqref{eq:patten_match} to reapply proj to each result.
+
+Repeatedly applying inj as a step requires some nuance as clearly the output type of a single application is not the same as the input type. 
+
+Its original type structure is recoverable by proj. proj(inj(f)) = f.
+
+
+
+other retract for types other than in the definition
 
 If $\tau_1 \trianglelefteq \tau_2$ and $\sigma_1 \trianglelefteq \sigma_2$, then $\tau_1 \times \sigma_1 \trianglelefteq \tau_2 \times \sigma_2$ and $\tau_1 \Rightarrow \sigma_1 \trianglelefteq \tau_2 \Rightarrow \sigma_2 $.
 
@@ -735,6 +822,8 @@ Speak about the universal type, how it has to be affinely typeable to gain this 
 There is a flip-flop correspondence between the size of the term and the size of the type.
 
 Lair described a potential usecase to be a codebase which favours accuracy over size and this can be used to be more readable, I think it comprehensively is less clear. but further research could be done.
+
+recovering the type structure from repeated applications of inj. 
 
 \section{Transforming unbounded terms}
 The transformation for unbounded terms can be seen in much the same way as for bounded terms. The idea is to construct a retract $(o \rightarrow o) \rightarrow \underline{0} \trianglelefteq o \rightarrow o$ into a lower order type, and inductively apply it to 'reduce' a term's type until it is a universal type $o \rightarrow o$. It can be thought of as a direct extension of the process described in Section \ref{section:inj-proj}, but it must use a different representation rather than finite tuples, and this, in turn, creates some more machinery to handle. This is because to adapt the terms from Section \ref{section:inj-proj} directly for unbounded terms would require fixed point recursion, which is not affinely typeable.
@@ -828,9 +917,15 @@ We do not provide a working implementation of the affine transformation for unbo
 We thoroughly discuss the denesting action, its roots in CPS programming, and various insights from the implementation process. We provide a real-world implementation of the transformation on bounded terms and discuss areas of exploration for unbounded terms.
 
 \chapter{Results}
-why is this better?
-is it more readable?
-some comments here even if brief would create a nice conclusion
+The transformation applied to a term with type $o \rightarrow o \rightarrow \underline{0}$ can be seen in Appendix \ref{}. Clearly the term size grows very large.
+
+We see no improvements to readability, but that could be due to the text formatting.
+
+[graph of upper bound affecting runtime and term size]
+
+[graph of type size affecting runtime and term size]
+
+It quickly becomes unfeasible to apply this transformation to a function, let alone an entire codebase. That being said, the interpreter was built to favour correctness over speed, so it is possible that this could be mitigated with enough optimisation.
 
 How much it grows. Example term with differing upper bound. Then different type.
 
@@ -840,14 +935,27 @@ a graph on runtime to perform the transformation.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusions}
 
+Major achievements:
+interpreter for SPCF, a the time of writing there is no widely available interpreter for SPCF. A working parser and primitive type inference algorithm.
 
+able to write programs in in its syntax and experiment with features.
+
+Affinely definable denesting action for bounded terms
+
+implement non-local control function catch, which is an uncommon feature for a lambda calculus.
+
+Commented on the details of the denesting action, its purpose and insights on implementation.
+
+Future work is possible to fully implement affinely typed denesting action for unbounded terms.
+
+a natural progression is to implement denesting of unbounded terms, a large part of the complicated machinery is assembled already.
 
 This is the chapter in which you review the major achievements in the light of your original objectives, critique the process, critique your own learning and identify possible future work.
 
 highlight novelties.
 
 \vfill
-\section{Word Count}
+\subsubsection{Word Count}
 The number of words until this point, excluding front matter: XXX.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1083,5 +1191,7 @@ Type judgement for eval {fact 5}
 \end{minted}
 
 \subsection{Program Evaluation}
+
+would be good to have a simpler example to step through. Then perhaps just define faactorial and the such as a last example and show it works.
 
 \end{document}
