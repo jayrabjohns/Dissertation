@@ -8,6 +8,8 @@
 \usepackage{amssymb}
 \usemintedstyle{vs}
 \usepackage{caption}
+\usepackage{booktabs}
+\usepackage{subcaption}
 
 \title{SPCF: Interpreter Development and Affine Program Transformation}
 \author{Jay Rabjohns}
@@ -26,6 +28,9 @@
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{corollary}{Corollary}[theorem]
 \newtheorem{lemma}[theorem]{Lemma}
+
+\theoremstyle{definition}
+\newtheorem{proposition}{Proposition}[chapter]
 
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}[chapter]%section]
@@ -762,28 +767,23 @@ One solution is to construct all n-fold products from the repeated application o
     In other words, elements from $X$ may be recovered from $Y$ after an initial mapping without information loss. It is in some senses a weaker form of bijection, where there is no implication of f and g being invertable.
 \end{definition}
 
-The definitions for proj and inj form an affinely definable retraction 
-\begin{equation}
+The pair of functions inj and proj form an affinely typeable retraction \eqref{eq:retraction_step}, proven by their definable terms \eqref{def:inj} and \eqref{def:proj}. A full proof can be found in the original literature, but informally there is quite explicitly a retraction from each type to one of a lower order given by Definitions \eqref{def:inj} and \eqref{def:proj}. By induction on $m$ it is possible to derive \eqref{eq:full_retraction}.
+\begin{equation}\label{eq:retraction_step}
+    \underline{n}^m \Rightarrow \underline{0} \trianglelefteq \underline{m + 1} \times (\underline{n}^m \Rightarrow \underline {0})^n \quad (\forall n > 0)
+\end{equation}
+\begin{equation}\label{eq:full_retraction}
     \underline{n}^m \Rightarrow \underline{0} \trianglelefteq \underline{m}^{n^m \cdot (m + 1)} \quad (\forall n > 0)
 \end{equation}
 
-It is true that terms of any type in the SPCF may be affinely typeable. 
-There is another retract to transform types into the form readily usable by the described transformation. 
-That other retract is : 
-
-
-Inj and proj form an inductive base case, after transforming terms in the other way, they may have this applied to them.
-
-Inj effectively reduces the order of a type by one. 
-this step may be repeated $m+1$ times to get a term of the type:
+Since inj reduces the order of a type by one, this step must be repeated $m+1$ times to reach a base case.
 \begin{align}
     n^{m+1} \Rightarrow \underline{0} &\rightarrow \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \tag*{(Once)}\\
     &\rightarrow \underline{m+1} \times (\underline{m} \times (n^{m-1} \Rightarrow \underline{0})^n)^n \tag*{(Twice)}\\
     &\rightarrow \underline{m+1} \times (\underline{m} \times (\dots \underline{1} \times(n^0 \Rightarrow \underline{0})^n\dots)^n)^n \tag*{(m+1 times)}
 \end{align}
-Each step reduces the order of the terms type by one down to 0. Regard that the inner most product of continuations in the $m+1$ case has elements of the type $n^0 \Rightarrow \underline{0} \equiv I \Rightarrow \underline{0}$ which is isomorphic to $\underline{0}$. Thus a function can be entirely encoded as a product.
+Regard that the inner most product of continuations in the $m+1$ case has elements of the type $n^0 \Rightarrow \underline{0} \equiv I \Rightarrow \underline{0}$ which is isomorphic to $\underline{0}$ \eqref{eq:nats-as-empty-product}. Thus a function can be entirely encoded as a product of the form $\underline{m}^{n^m \cdot (m + 1)}$.
 
-The original type structure is recoverable with proj.
+The original type structure is recoverable from this form with proj.
 \begin{align}
     \underline{m+1} \times (\underline{m} \times (\dots (n^0 \Rightarrow \underline{0})^n\dots)^n)^n &\rightarrow \underline{m+1} \times (m \times (n^{m-1} \Rightarrow \underline{0})^n)^n \tag*{(m-1 times)}\\
     &\rightarrow \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \tag*{(m times)}\\
@@ -792,7 +792,7 @@ The original type structure is recoverable with proj.
 The result is an affinely typable term contextually equivalent to $f$, with no function nesting. In other words, $(\text{proj} \circ \text{inj})\ f = f$. Seeing as Haskell has an operator for function composition, this is rather satisfyingly representable in Haskell as \mintinline{haskell}{(proj . inj) f}.
 
 \subsubsection{Implementation notes}
-The repeated application of these terms requires some nuance. Clearly, their output types for a single step do not match the corresponding input types. It must first pattern match on the terms to selectively apply the relevant step to the correct subterm. 
+The repeated application of these terms requires some nuance. Clearly, their output types for a single step do not match the corresponding input types. The term must first be pattern matched on to selectively apply the relevant step to the correct subterm. 
 
 For inj, recognise that we must match on a sub term of the type  $\llbracket n^{m} \Rightarrow \underline{0} \rrbracket$. Considering the concrete definition for inj \eqref{def:inj} the relevant subterm to reapply to is each element of the $n$-fold product:
 \[
@@ -802,33 +802,30 @@ This can be acquired by pattern matching on the preceding terms
 \begin{equation}\label{eq:patten_match}
     \lambda f.\text{case}\langle \text{catch}\ f, \langle \langle i,\underline{\hspace{1cm}}\ |\ j < n  \rangle \rangle\ |\ i \leq m \rangle \rangle
 \end{equation}
+Similarly for proj \eqref{def:proj}, we must find subterms with the type $\llbracket \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \rrbracket$. In this case the term must first be traversed to reach the base case for inj \eqref{eq:inj-base-case}, then traversed again backwards applying proj at each step. The correct sub term to reapply proj to can be found by using the same pattern as for inj \eqref{eq:patten_match}.
 
-Similarly for proj \eqref{def:proj}, we must find subterms with the type $\llbracket \underline{m+1} \times (n^m \Rightarrow \underline{0})^n \rrbracket$. In this case we must first traverse the term until reaching the previous base case:
-\[\underline{1} \times(n^0 \Rightarrow \underline{0})^n\]
-then work backwards by using the same pattern as for inj \eqref{eq:patten_match} to reapply proj to each result.
+\begin{equation}\label{eq:inj-base-case}
+    \underline{1} \times(n^0 \Rightarrow \underline{0})^n
+\end{equation}
 
-Repeatedly applying inj as a step requires some nuance as clearly the output type of a single application is not the same as the input type. 
+\subsubsection{Generalisation to other types}
 
-Its original type structure is recoverable by proj. proj(inj(f)) = f.
+\begin{definition}\label{eq:nats-as-empty-product}
+    The isomorphism $\underline{0}^m \Rightarrow \underline{n} \cong \underline{m + n}$ is definable as the pair of terms:
+    \begin{equation}
+        \lambda f. \text{catch } \lambda k. (\text{case }\langle f \langle \pi_i(k)\ |\ i < m\rangle , \langle \pi_{m+j}(k)\ |\ j < n \rangle \rangle
+    \end{equation}
+    \begin{equation}
+        \lambda x. \lambda y. \text{catch } \lambda k. \text{case } \langle x, \langle \pi_0(y),\dots,\pi_{m-1}(y), \pi_0(k),\dots,\pi_{n-1}(k)\rangle \rangle
+    \end{equation}
+\end{definition}
 
-
-
-other retract for types other than in the definition
-
-If $\tau_1 \trianglelefteq \tau_2$ and $\sigma_1 \trianglelefteq \sigma_2$, then $\tau_1 \times \sigma_1 \trianglelefteq \tau_2 \times \sigma_2$ and $\tau_1 \Rightarrow \sigma_1 \trianglelefteq \tau_2 \Rightarrow \sigma_2 $.
-
-Speak about the universal type, how it has to be affinely typeable to gain this desired effect.
-
-There is a flip-flop correspondence between the size of the term and the size of the type.
-
-Lair described a potential usecase to be a codebase which favours accuracy over size and this can be used to be more readable, I think it comprehensively is less clear. but further research could be done.
-
-recovering the type structure from repeated applications of inj. 
+Using \eqref{eq:nats-as-empty-product} and the fact that if $\tau_1 \trianglelefteq \tau_2$ and $\sigma_1 \trianglelefteq \sigma_2$, then $\tau_1 \times \sigma_1 \trianglelefteq \tau_2 \times \sigma_2$ and $\tau_1 \Rightarrow \sigma_1 \trianglelefteq \tau_2 \Rightarrow \sigma_2 $, we may note that for all types $\tau$ there exists integers $n, m$ such that $\tau \trianglelefteq \underline{n}^{\underline{m}}$. Hence we may show that for any closed term $M : \tau$, $\exists n,m (\tau \trianglelefteq \underline{n}^{\underline{m}})$ where $\llbracket \text{inj}(M) \rrbracket$ is affinely definable as a term $N : \underline{n}^{\underline{m}}$ and $\llbracket \text{proj} N \rrbracket = \llbracket \text{proj}(\text{inj}(M))\rrbracket = \llbracket M \rrbracket$. Thus $M \simeq \text{proj}(N)$. 
 
 \section{Transforming unbounded terms}
-The transformation for unbounded terms can be seen in much the same way as for bounded terms. The idea is to construct a retract $(o \rightarrow o) \rightarrow \underline{0} \trianglelefteq o \rightarrow o$ into a lower order type, and inductively apply it to 'reduce' a term's type until it is a universal type $o \rightarrow o$. It can be thought of as a direct extension of the process described in Section \ref{section:inj-proj}, but it must use a different representation rather than finite tuples, and this, in turn, creates some more machinery to handle. This is because to adapt the terms from Section \ref{section:inj-proj} directly for unbounded terms would require fixed point recursion, which is not affinely typeable.
+The unbounded case can be viewed as similar to the bounded case. The idea is to construct a retract $(o \rightarrow o) \rightarrow \underline{0} \trianglelefteq o \rightarrow o$ into a lower order type, and inductively apply it to 'reduce' a term's type until it is a universal type $o \rightarrow o$. It can be thought of as an extension of the process described in Section \ref{section:inj-proj}, mainly differing by its representation as natural numbers rather than finite tuples. This is because to adapt the terms from Section \ref{section:inj-proj} directly for unbounded terms would require fixed point recursion, which is not affinely typeable.
 
-While this transformation \emph{can} be viewed as an extension of the bounded case, it may also help to view it from the point of view of a two-player game. Specifically, seeing as functions may be represented as decision trees, its traversal may be represented as a game \emph{strategy} $\sigma : (\textbf{N} \times \textbf{N})^* \rightarrow \textbf{N}_\bot^\top$, dictating the responses a player with a finite list of pairs of moves. Put differently, it can represent the application of a function $f$ to its argument $g \in \textbf{N}\rightarrow \textbf{N}_\bot^\top$ by sequentially choosing a number $n$ and evaluating the second player's response $g(n)$ until the game is stopped by either player choosing $\top$ or $\bot$.
+An alternative point of view is to view the unbounded case as a two-player game. Specifically, seeing as functions may be represented as decision trees, its traversal may be represented as a game \emph{strategy} $\sigma : (\textbf{N} \times \textbf{N})^* \rightarrow \textbf{N}_\bot^\top$, dictating the responses a player with a finite list of pairs of moves. Put differently, it can represent the application of a function $f$ to its argument $g \in \textbf{N}\rightarrow \textbf{N}_\bot^\top$ by sequentially choosing a number $n$ and evaluating the second player's response $g(n)$ until the game is stopped by either player choosing $\top$ or $\bot$.
 
 A function $f : (\textbf{N} \rightarrow \textbf{N}_\bot^\top)$ strategy is definable as strat$(f)(s) = \text{catch}(\lambda e.f(e[s]))$.
 
@@ -917,21 +914,34 @@ We do not provide a working implementation of the affine transformation for unbo
 We thoroughly discuss the denesting action, its roots in CPS programming, and various insights from the implementation process. We provide a real-world implementation of the transformation on bounded terms and discuss areas of exploration for unbounded terms.
 
 \chapter{Results}
-The transformation applied to a term with type $o \rightarrow o \rightarrow \underline{0}$ can be seen in Appendix \ref{}. Clearly the term size grows very large.
+Here we briefly discuss the denesting action applied to some terms. 
 
-We see no improvements to readability, but that could be due to the text formatting.
+There is a flip-flop correspondence between the size of the term and the size of the type, to the point where it becomes feasibly impractical as a real-world transformation. From Table \ref{tab:affine-term-sizes}, to rewrite a function with 4 arguments ($m=3$) in a language with only boolean values ($n=2$) it would require roughly 50-70 thousand pages\footnote{Page count estimated from the character count using \url{https://charactercounter.com/characters-to-words}} to write out the transformed program using no linebreaks. 
 
-[graph of upper bound affecting runtime and term size]
+It also requires significant computational resources, the entries marked $?$ in Tables \ref{tab:affine-term-sizes}, \ref{tab:timings} indicate that the machine running the transformation ran out of available memory after using $\sim$16GB with 2GB swap. The exponential increase in term size and execution time is further illustrated in Appendix \ref{appendix:term-growth}.
 
-[graph of type size affecting runtime and term size]
+\begin{table}[h]
+  \centering
+  \caption{Term size after affine transformation, calculated as the length of the resulting terms string representation. ? indicates no data due to memory constraints.}
+  \label{tab:affine-term-sizes}
+  \begin{tabular}{c c c c c c}
+    \toprule
+    \textbf{n} & \textbf{m = 0} & \textbf{m = 1} & \textbf{m = 2} & \textbf{m = 3} & \textbf{m = 4}\\
+    \midrule
+    1 & 126 & 1233 & 20220 & 758237 & 69836016\\
+    2 & 290 & 7814 & 507387 & 83474616 & ?\\
+    3 & 558 & 30839 & 4532418 & ? & ?\\
+    4 & 948 & 89184 & 23125371 & ? & ?\\
+    5 & 1478 & 211085 & 84408096 & ? & ?\\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
-It quickly becomes unfeasible to apply this transformation to a function, let alone an entire codebase. That being said, the interpreter was built to favour correctness over speed, so it is possible that this could be mitigated with enough optimisation.
+All testing was performed on a simple term of the form:
+\[
+\lambda x^{\underline{n}^{m+1}}. \text{case } \langle \pi_0(x), \bot^n \rangle : \llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \llbracket 
+\]
 
-How much it grows. Example term with differing upper bound. Then different type.
-
-a graph of growth of the term (it gets very large) with type size and upper bound size.
-
-a graph on runtime to perform the transformation.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Conclusions}
 
@@ -982,31 +992,67 @@ The number of words until this point, excluding front matter: XXX.
 %\chapter{Raw Results Output}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Code}
+\chapter{Term size growth with transformation}\label{appendix:term-growth}
 
-\section{Lexer}\label{appendix: lexer}
-First macros are defined for digits and string characters. Then list of token patterns is defined using those macros. Then an algebraic datatype is used to enumerate all possible tokens, this is primarily what will be used later in the parser. Finally, some helper functions are defined to handle errors during lexing and for the handling of the previously defined ADT.
+\begin{table}[!ht]
+  \centering
+  \caption{Execution time in seconds of affine transformation, recorded as the user-mode CPU time calculated by the 'time' command part of the GNU Core Utilities package. ? indicates no data due to memory constraints.}
+  \label{tab:timings}
+  \begin{tabular}{c c c c c c}
+    \toprule
+    \textbf{n} & \textbf{m = 0} & \textbf{m = 1} & \textbf{m = 2} & \textbf{m = 3} & \textbf{m = 4}\\
+    \midrule
+    1 & 0.2 & 0.3 & 0.4 & 1.2 & 193\\
+    2 & 0.3 & 0.3 & 0.6 & 148 & ?\\
+    3 & 0.3 & 0.3 & 3.7 & ? & ?\\
+    4 & 0.3 & 0.3 & 22 & ? & ?\\
+    5 & 0.3 & 0.3 & 83 & ? & ?\\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
-\lstinputlisting[basicstyle=\scriptsize]{Lexer.x}
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.5\textwidth]{media/inj_term_size_plane.png}
+    \caption{3D projection of log term size of inj($M$) against $n,m$.  }
+    \label{fig:enter-label}
+\end{figure}
 
-\section{Parser}\label{appendix: parser}
-The same set of tokens defined in the lexer are brought forward to the definition of our parser. It's this compatibility between Happy and Alex that makes them so popular. Then a series of rules are defined for how to inductively construct the AST from the defined tokens. Finally, some helper functions are defined enabling our program to interface with the parser later. 
+\begin{figure}
+\centering
+\begin{subfigure}{0.45\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{media/inj_term_size_against_type_order.png}
+  \caption{Term size against the number of function parameters, where $n=1$ is fixed}
+\end{subfigure}%
+\hfill
+\begin{subfigure}{0.45\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{media/inj_term_size_against_upper_bound.png}
+  \caption{Term size against the upper bound, where $m=0$ is fixed}
+\end{subfigure}
+\caption{Term size of inj($M$)in relation to hyperparameters $n,m$. Note the log scale.}
+\label{fig:inj-term-size}
+\end{figure}
 
-\lstinputlisting[basicstyle=\scriptsize]{Parser.y}
+\begin{figure}
+\centering
+\begin{subfigure}{0.45\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{media/affine_term_size_against_type_order.png}
+  \caption{Log term size against the number of function parameters, where $n=1$ is fixed}
+\end{subfigure}%
+\hfill
+\begin{subfigure}{0.45\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{media/affine_term_size_against_upper_bound.png}
+  \caption{Term size against the upper bound, where $m=0$ is fixed}
+\end{subfigure}
+\caption{Log term size of proj(inj($M$)) in relation to hyperparameters $n,m$.}
+\label{fig:inj-term-size}
+\end{figure}
 
-%% NOTE For this to typeset correctly, ensure you use the pdflatex
-%%      command in preference to the latex command.  If you do not have
-%%      the pdflatex command, you will need to remove the landscape and
-%%      multicols tags and just make do with single column listing output
-
-%\begin{landscape}
-%\begin{multicols}{2}
-%\section{File: yourCodeFile.java}
-%\lstinputlisting[basicstyle=\scriptsize]{yourCodeFile.java}
-%\end{multicols}
-%\end{landscape}
-
-\chapter{Example usage of injection and projection terms}
+\chapter{Example term transformation}
 
 \begin{lstlisting}[mathescape, caption={Interpreter logs from applying injection and projection terms. The upper bound on values n = 2, effectively representing the booleans.}]
 f = \p:(NatxNat) => Case <Case <1, p>, <$\bot$, $\bot$>>
