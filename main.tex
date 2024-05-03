@@ -74,7 +74,7 @@ As part of the project we also build and release an interpreter for SPCF, a lang
 \chapter*{Acknowledgements}
 Firstly, I would like to thank my supervisor, Dr. Jim Laird, for the endless source of expertise and support throughout the year. This project has been a joy from front to cover and it certainly wouldn't have been possible without your thoughtful explanations and feedback.
 
-I would also like to thank my family and friends for their perennial support and endless proofreading throughout the project.
+sI would also like to thank my family and friends for their perennial support and endless proofreading throughout the project.
 
 \newpage
 \setcounter{page}{1}
@@ -152,7 +152,7 @@ A function which is \emph{recursive} references itself in its definition. In the
 \subsection{Typed \texorpdfstring{$\lambda$}{lambda}-calculi}
 Extending the $\lambda$-calculus by editing its grammar is possible and indeed common. One such way is the addition of types, creating a typed $\lambda$-calculus. Types encode additional information about terms, including a more restrictive set of rules for application. Adding types is a trade-off, some terms are no longer expressible, but more can be proven about the remaining terms. Generality is lost in favour of specificity.
 
-The simply typed $\lambda$-calculus (STLC) is one variant of typed $\lambda$-calculus originally introduced by \cite{church_1940} to address what he felt was a paradox in his untyped lambda calculus, self-application. An example of self-application is the term $\lambda x.xx$, commonly denoted $\Omega$, an example of a diverging program. A grammar for the STLC is given by \eqref{eq:typed_lambda_calc}, where types are either a base type $o$ or constructed from two types $\sigma \rightarrow \tau$. For example, see that the term ($\lambda x^{\tau}.M)N$ is only valid as a typed term if $N$ has type $\tau$.
+The simply typed $\lambda$-calculus (STLC) is one variant of typed $\lambda$-calculus originally introduced by \cite{church_1940} to address what he felt was a paradox in his untyped lambda calculus, self-application. An example of self-application is the term $\lambda x.xx$, commonly denoted $\Omega$, which is the prototypical divergent program. A grammar for the STLC is given by \eqref{eq:typed_lambda_calc}, where types are either a base type $o$ or constructed from two types $\sigma \rightarrow \tau$. For example, see that the term ($\lambda x^{\tau}.M)N$ is only valid as a typed term if $N$ has type $\tau$.
 
 \begin{equation} \label{eq:typed_lambda_calc}
 \begin{split}
@@ -161,7 +161,7 @@ The simply typed $\lambda$-calculus (STLC) is one variant of typed $\lambda$-cal
 \end{split}
 \end{equation}
 
-The significance of preventing self-application is that recursion is no longer possible, however, in return the STLC gains the property of being strongly normalising, where every term terminates to a $\beta$-normal form \citep{tait_1967}. This is illustrated by the Y-combinator \eqref{eq:y_combinator} being untypable, any type assigned to $x$ will always lead to a contradiction for the type of $f$. This is a significant tradeoff which influenced the design of further extensions of the $\lambda$-calculus, which we discuss in the coming sections.
+The significance of preventing self-application is that recursion is no longer possible. However, in return, the STLC is strongly normalising, a property indicating that every term terminates to a $\beta$-normal form \citep{tait_1967}. This is illustrated by the Y-combinator \eqref{eq:y_combinator} being untypable, any type assigned to $x$ will always lead to a contradiction for the type of $f$. This is a significant tradeoff which influenced the design of further extensions of the $\lambda$-calculus, which we discuss in the coming sections.
 
 \section{Extensions of the simply typed \texorpdfstring{$\lambda$}{lambda}-calculus}
 \subsection{Logic of Computable Functions (LCF)}
@@ -409,7 +409,7 @@ For this project, a type inference algorithm is necessary to construct a general
 One might wonder why the implementation of the denesting action, which ultimately takes the form of a pair of terms in the language, is written in Haskell and not in SPCF. That is to say, if our implementation is fully expressive, why must we rely on Haskell to construct these terms? The answer lies once again as a typing problem. We have described the typing system of SPCF as monomorphic, where each term has a unique type and the type inference algorithm is similar to the original definition by \cite{curry1958combinatory}. To define a term across many types as would be needed here we would require a type system supporting parametric polymorphism. Without this, it is possible to exhaustively define pairs of terms for a finite subset of types, but nothing more. This would be possible and indeed type inference algorithms for these type systems exist \cite[\emph{e.g.},][]{hindley_1969, milner_1978} however they are more complex. Therefore we utilise Haskell's more advanced type system to define these terms generically without the additional implementation complexity. 
 
 \subsection{Examples}
-Consider $+_l$ defined in Section \ref{sec:spcf}, its typing judgement would look like \ref{listing: addLeft judgement}. The program output for the typing of this term is illustrated in Listing \ref{listing: addLeft judgement}. More typing terms and their typing judgements can be found in Appendix \ref{appendix: term evaluations}.
+Consider $+_l$ defined in Section \ref{sec:spcf}, its typing judgement, as calculated by the interpreter, is illustrated in Listing \ref{listing: addLeft judgement}. More examples of terms and their typing judgements can be found in Appendix \ref{appendix: term evaluations}.
 \begin{listing}
 \caption{Program output from the typing of $+_l$}
 \label{listing: addLeft judgement}
@@ -457,6 +457,7 @@ It is worth noting that not all calculi require a notion of evaluation contexts 
 
 Evaluation contexts are, in essence, an environment and a 'hole' $E[\_]$ which can be filled by any term. When a hole is filled, all the term's free variables take on values from the environment. This naturally describes a way of providing inputs or starting values to a program, as well as equally describing the tracking of an ongoing computation through recording the current values of variables in the environment. This idea of capturing the current state of a computation in a higher kinded type is common in functional programming and is an idiomatic use case for a monad.
 
+\subsection{The Eval monad}
 A monad represents computations which can be composed together to form new computations. In practice, they are used to track state, print program logs, or encode the possibility of computational failure. Although monads are a useful abstraction over composable computations, frustratingly they themselves are not composable with one another. To encode multiple monadic effects for a single computation, one must build what is known as a monad transformer, effectively a monad over other monads.
 
 Our implementation of term evaluation in Haskell revolves around a monad transformer we have defined called Eval. It is composed of predefined monads from the Haskell standard library. As illustrated in Listing \ref{listing: eval} it uses a 'Reader' monad to keep track of the current environment, an 'Except' monad to indicate that computation could fail as a string, and a 'Writer' monad to keep track of any supplementary logs which are a useful way of recording the order of operations to look at later. An environment is just a map of labels to terms, exactly as it is defined in Definition \ref{def: environment}. Using this monad, it is possible to define an 'eval' function with the signature below:
@@ -543,7 +544,7 @@ A programmer may determine the evaluation order for a given procedure's argument
 \cite{cartwright_1992} include an operator called 'catch' in SPCF which allows the observation of evaluation order within a program. It is defined as a family of procedures with types $(\tau_1 \rightarrow \dots \tau_n \rightarrow o) \rightarrow o$ where if $f$ is a procedure of type $\tau_1 \rightarrow \dots \tau_n \rightarrow o$, then catch $f$ returns $i - 1$ if f is strict in its $i^{\text{th}}$ argument and $k+n$ if $f$ returns a constant. This operator is a form of non-local control, where local evaluation is terminated and control transferred elsewhere in the program.
 
 \subsubsection{Implementing non-local control}
-When evaluating a catch statement, a second non-stateful traversal of the AST is performed from the current term until an exit condition is met. Function constants and applications simply continue the downward traversal of catch, being sure to evaluate their arguments in sequential order. To evaluate $\lambda$-abstractions, the binding variable's label is pushed to a control stack before also continuing downward. When a variable is reached, the index of the last occurring instance of the label in the stack is returned. In the case of error constants not passed as arguments, the length of the current control stack is returned. Catch was originally defined in terms of a lexically scoped control stack, which equally describes this implementation.
+When evaluating a catch statement, a second non-stateful\footnote{It is non-stateful in the sense that it does not consider the state from the evaluation up to this point.} traversal of the AST is performed from the current term until an exit condition is met. Function constants and applications simply continue the downward traversal of catch, being sure to evaluate their arguments in sequential order. To evaluate $\lambda$-abstractions, the binding variable's label is pushed to a control stack before also continuing downward. When a variable is reached, the index of the last occurring instance of the label in the stack is returned. In the case of error constants not passed as arguments, the length of the current control stack is returned. Catch was originally defined in terms of a lexically scoped control stack, which equally describes this implementation.
 
 We discuss further the implications of the existence of catch in Chapter \ref{chapter: denesting}, along with how it is used to construct the affinely definable denesting transformation.
 
@@ -560,7 +561,11 @@ which would otherwise have to be considered if handwriting a lexer, while highli
 
 One benefit of Alex being built with Haskell is that it has extraordinary support for functional idioms, such as using a State Monad for tracking token information during tokenisation. This monad keeps track of metadata such as the file name and current character position, which is used to make errors more informative. 
 
-Using the previous example along with the minimal Alex configuration in Listing \ref{listing:alex-config}, it is possible to tokenise the expression \lstinline{x=5;} as the list of tokens \lstinline{[(TokenId "x"), TokenEquals, (TokenNat 5), TokenSemicolon]}. If the expression was malformed such as \lstinline{x@ = 5;}, then the error will include information from the state monad
+Using the previous example along with the minimal Alex configuration in Listing \ref{listing:alex-config}, it is possible to tokenise the expression \lstinline{x=5;} as the list of tokens:
+\begin{minted}{haskell}
+[(TokenId "x"), TokenEquals, (TokenNat 5), TokenSemicolon]
+\end{minted}
+If the expression was malformed such as \lstinline{x@ = 5;}, then the error will include information from the state monad
 \begin{verbatim}
 spcf: user error (programs/program.spcf:1:2: lexical error at character '@')
 \end{verbatim}
@@ -673,7 +678,7 @@ CPS is a style of programming where all function calls are tail calls. It is pos
     Classically, continuations have one argument, the value of the computation so far, and return the final result of the computation when the rest of the program has also finished. They are analogous to callback functions or partial function applications. 
 \end{definition}
 
-In some senses, CPS programming is the natural opposite of classical functional programming. With the latter, all computations are effectively the return values of functions, whereas with CPS computations are function side effects captured by running continuations. The transformation relies on the notion of continuation passing as its conceptual base case. It is possible to rewrite any function to an equivalent curried function written in CPS, then this transformation may be applied.
+In some senses, CPS programming is the natural opposite of classical functional programming. With the latter, all computations are effectively the return values of functions, whereas with CPS, computations are function side effects captured by running continuations. The transformation relies on the notion of continuation passing as its conceptual base case. It is possible to rewrite any function to an equivalent curried function written in CPS, then this transformation may be applied.
 
 A valid question is what curried functions written in CPS look like, consider an example term with the type $bool \times bool \Rightarrow \underline{0}$
 \[
@@ -946,12 +951,13 @@ Less focus is given to the transformation of unbounded terms and indeed is an ar
 \chapter{Results}\label{chapter:results}
 Here we briefly discuss the denesting action applied to some terms. 
 
-There is a flip-flop correspondence between the size of the term and the size of the type. It is possible to theorise that this transformation may be useful in a codebase which favours correctness and simplicity over program size. We find that this is most likely not the case in its current form because the program size grows to the point where it becomes feasibly impractical for a human to read. For instance, consider the function $f$ \eqref{eq:affine-ex-f} with 4 arguments ($m=3$) and only boolean values ($n=2$). To write out $f$ as source code after applying the transformation, it would require roughly \textbf{60 thousand pages}\footnote{Page count estimated from the character count using \url{https://charactercounter.com/characters-to-words}} with no linebreaks. 
+There is a flip-flop correspondence between the size of the term and the size of the type. It is suggested that this transformation may be useful when correctness and simplicity are favoured over program size. We find that this is most likely not the case in its current form because the program size grows to the point where it becomes feasibly impractical for a human to read. For instance, consider the function $f$ \eqref{eq:affine-ex-f} with 4 arguments ($m=3$) and only boolean values ($n=2$). To write out $f$ as source code after applying the transformation, it would require roughly \textbf{60 thousand pages}\footnote{Page count estimated from the character count using \url{https://charactercounter.com/characters-to-words}} with no linebreaks. 
 
 In addition to space concerns, the transformation also requires significant computational resources. The entries marked $?$ in Tables \ref{tab:affine-term-sizes}, \ref{tab:timings} indicate that the machine running the transformation ran out of available memory after using $\sim$16GB with 2GB swap. Table \ref{tab:affine-term-sizes} is a breakdown of term sizes after the affine transformation concerning the number of arguments (m + 1) and the maximum value of the language $n$. The double exponential increase in term size and execution time is further illustrated in Appendix \ref{appendix:term-growth}. All testing is performed on a simple term of the form \eqref{eq:affine-ex-f}.
 \begin{equation}\label{eq:affine-ex-f}
     f =\lambda x^{\underline{n}^{m+1}}. \text{case } \langle \pi_0(x), \bot^n \rangle : \llbracket \underline{n}^{m+1} \Rightarrow \underline{0} \llbracket 
 \end{equation}
+In conclusion, the transformation is unfeasible in terms of improvements to readability but it is yet to be seen whether it has other applications.
 
 \begin{table}[h]
   \centering
@@ -1421,6 +1427,4 @@ if 0
  else succ ((fix (\b:o->o->o => \d:o => \a:o => if0 d then a else (succ (b (pred d) a)))) (pred 0) 3)
 "6"
 \end{minted}
-would be good to have a simpler example to step through. Then perhaps just define faactorial and the such as a last example and show it works.
-
 \end{document}
